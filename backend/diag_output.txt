@@ -1,0 +1,6 @@
+User counts by role: [(<Role.STUDENT: 'student'>, 8), (<Role.ADMIN: 'admin'>, 1), (<Role.TEACHER: 'teacher'>, 5)]
+User: 0e741590-72b2-471c-aa97-5584302afe61, Email: krushagarwal7879@gmail.com, Role: Role.ADMIN, Active: True
+User: 93fb5088-dd48-4b9c-9332-2b15631b2266, Email: rajesh.kumar@college.edu, Role: Role.TEACHER, Active: True
+User: 35583509-61d4-4f6a-9bca-31af946cb509, Email: anita.sharma@college.edu, Role: Role.TEACHER, Active: True
+User: 9b47e703-6f9a-45a9-98f1-24a3f1d894c7, Email: suresh.reddy@college.edu, Role: Role.TEACHER, Active: True
+User: 6f271314-4df7-49ea-bbb8-c44acc6e7e69, Email: meera.patel@college.edu, Role: Role.TEACHER, Active: True

@@ -1,0 +1,22 @@
+Searching for ALL Section: A, Branch: CSE, Sem: 1
+Found 5 matching sections
+ID: ec1d8612-272f-4d93-9707-63d97df26c25
+  Students: 6
+  Teachers: 1
+--------------------
+ID: 55b226c9-7ff9-4271-a55a-a4c7710cec4e
+  Students: 0
+  Teachers: 0
+--------------------
+ID: 1dc3a5ab-cea0-4926-b769-891bc5ba3c18
+  Students: 0
+  Teachers: 0
+--------------------
+ID: b921a704-afa8-478b-a48f-c3441d32979d
+  Students: 0
+  Teachers: 0
+--------------------
+ID: 8b21a460-b92c-4f60-bcdd-350a265200cb
+  Students: 0
+  Teachers: 0
+--------------------

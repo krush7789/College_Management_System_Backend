@@ -1,0 +1,5 @@
+first_name,last_name,email,phone_number,designation,department
+Robert,Wilson,robert.wilson@university.edu,9876543214,Professor,Computer Science
+Emily,Davis,emily.davis@university.edu,9876543215,Assistant Professor,Electronics
+David,Miller,david.miller@university.edu,9876543216,Associate Professor,Mechanical
+Jessica,Taylor,jessica.taylor@university.edu,9876543217,Lecturer,Physics

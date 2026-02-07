@@ -1,0 +1,46 @@
+from typing import List
+from uuid import UUID
+from sqlalchemy import select
+from .base import BaseRepository
+from app.models.student_elective import StudentElective
+from app.models.subject import Subject
+
+class ElectiveRepository(BaseRepository):
+    async def get_available_electives(self) -> List[Subject]:
+        """
+        Returns all subjects marked as elective.
+        """
+        stmt = select(Subject).where(Subject.subject_type == "ELECTIVE")
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
+
+    async def get_student_electives(self, student_id: UUID) -> List[Subject]:
+        """
+        Returns subjects selected by a student.
+        """
+        stmt = (
+            select(Subject)
+            .join(StudentElective, Subject.id == StudentElective.subject_id)
+            .where(StudentElective.student_id == student_id)
+        )
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
+
+    async def select_elective(self, student_id: UUID, subject_id: UUID) -> StudentElective:
+        """
+        Associate an elective subject with a student.
+        """
+        # Check if already selected
+        existing_stmt = select(StudentElective).where(
+            StudentElective.student_id == student_id,
+            StudentElective.subject_id == subject_id
+        )
+        existing = await self.db.execute(existing_stmt)
+        if existing.scalar_one_or_none():
+            return None # Or raise exception
+            
+        new_selection = StudentElective(student_id=student_id, subject_id=subject_id)
+        self.db.add(new_selection)
+        await self.db.commit()
+        await self.db.refresh(new_selection)
+        return new_selection
