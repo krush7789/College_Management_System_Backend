@@ -12,12 +12,20 @@ class ExamRepository(BaseRepository[Exam]):
         super().__init__(Exam, db)
         
     async def get_by_subject(self, subject_id: UUID) -> List[Exam]:
-        query = select(self.model).where(self.model.subject_id == subject_id)
+        query = (
+            select(self.model)
+            .options(selectinload(self.model.subject), selectinload(self.model.section))
+            .where(self.model.subject_id == subject_id)
+        )
         result = await self.db.execute(query)
         return result.scalars().all()
 
     async def get_by_section(self, section_id: UUID) -> List[Exam]:
-        query = select(self.model).where(self.model.section_id == section_id)
+        query = (
+            select(self.model)
+            .options(selectinload(self.model.subject), selectinload(self.model.section))
+            .where(self.model.section_id == section_id)
+        )
         result = await self.db.execute(query)
         return result.scalars().all()
         

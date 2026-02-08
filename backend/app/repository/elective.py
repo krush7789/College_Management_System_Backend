@@ -1,11 +1,16 @@
 from typing import List
 from uuid import UUID
 from sqlalchemy import select
-from .base import BaseRepository
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.student_elective import StudentElective
 from app.models.subject import Subject
 
-class ElectiveRepository(BaseRepository):
+from .base import BaseRepository
+
+class ElectiveRepository(BaseRepository[StudentElective]):
+    def __init__(self, db: AsyncSession):
+        super().__init__(StudentElective, db)
+
     async def get_available_electives(self) -> List[Subject]:
         """
         Returns all subjects marked as elective.

@@ -1,0 +1,3 @@
+email,first_name,last_name,phone_number,designation,department
+test.teacher1@example.com,Test,Teacher1,1234567890,Professor,Computer Science
+test.teacher2@example.com,Test,Teacher2,0987654321,Assistant Professor,Mathematics

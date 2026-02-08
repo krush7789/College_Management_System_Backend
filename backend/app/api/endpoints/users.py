@@ -1,12 +1,12 @@
 from typing import List, Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks
 import csv
 import io
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.database import get_db, AsyncSessionLocal
 from app.core.dependencies import get_current_admin, get_current_user
 from app.models.user import User, Role
 from app.repository.user import UserRepository
@@ -23,15 +23,148 @@ from app.schemas.user import (
 
 router = APIRouter(tags=["Users"])
 
-@router.post("/bulk-import")
+
+# Expected Headers
+STUDENT_HEADERS = {"email", "first_name", "last_name", "phone_number", "roll_no", "branch_code", "section_name"}
+TEACHER_HEADERS = {"email", "first_name", "last_name", "phone_number", "designation", "department"}
+
+
+async def process_bulk_import(content: bytes, role: Role, admin_email: str):
+    """
+    Background task to process bulk import.
+    """
+    print(f"DEBUG: Starting background import for role: {role} initiated by {admin_email}")
+    decoded = content.decode("utf-8")
+    stream = io.StringIO(decoded)
+    reader = csv.DictReader(stream)
+    
+    try:
+        async with AsyncSessionLocal() as db:
+            user_repo = UserRepository(db)
+            branch_repo = BranchRepository(db)
+            section_repo = SectionRepository(db)
+            
+            success_count = 0
+            errors = []
+            import secrets
+
+            for row_idx, row in enumerate(reader, start=2): # Header is line 1
+                try:
+                    email = row.get("email")
+                    first_name = row.get("first_name")
+                    last_name = row.get("last_name")
+                    
+                    if not email or not first_name:
+                        errors.append(f"Row {row_idx}: Missing required fields (email, first_name)")
+                        continue
+
+                    if await user_repo.email_exists(email):
+                        errors.append(f"Row {row_idx}: Email {email} already exists")
+                        continue
+                    
+                    # Generate random password
+                    generated_password = secrets.token_urlsafe(10)
+                    
+                    user_data = {
+                        "email": email,
+                        "first_name": first_name,
+                        "last_name": last_name or "",
+                        "phone_number": row.get("phone_number"),
+                        "password": generated_password,
+                        "is_first_login": True
+                    }
+
+                    if role == Role.STUDENT:
+                        roll_no = row.get("roll_no")
+                        if not roll_no:
+                            errors.append(f"Row {row_idx}: Missing roll_no for student")
+                            continue
+                        if await user_repo.roll_no_exists(roll_no):
+                            errors.append(f"Row {row_idx}: Roll number {roll_no} already exists")
+                            continue
+                        user_data["roll_no"] = roll_no
+
+                        # Lookup Branch and Section
+                        branch_code = row.get("branch_code")
+                        section_name = row.get("section_name")
+                        
+                        if branch_code:
+                            branch = await branch_repo.get_by_code(branch_code)
+                            if not branch:
+                                errors.append(f"Row {row_idx}: Branch code {branch_code} not found")
+                                continue
+                            user_data["branch_id"] = branch.id
+                            
+                            if section_name:
+                                section = await section_repo.get_first_by_name_and_branch(section_name, branch.id)
+                                if not section:
+                                    errors.append(f"Row {row_idx}: Section {section_name} not found in branch {branch_code}")
+                                    continue
+                                user_data["section_id"] = section.id
+                        
+                        # Create the student
+                        await user_repo.create_user(role=role, **user_data)
+                        
+                        # Send Welcome Email
+                        try:
+                            from app.core.email import email_service
+                            await email_service.send_student_welcome_email(
+                                to_email=email,
+                                name=f"{first_name}",
+                                password=generated_password,
+                                roll_no=roll_no
+                            )
+                        except Exception as e:
+                            print(f"Failed to send email to {email}: {e}")
+
+                    else:
+                         # Teacher-specific fields
+                         # Generate random password (reusing same logic as student)
+                         # user_data["password"] is already set to generated_password from earlier
+                         
+                         user_data["designation"] = row.get("designation", "Lecturer")
+                         user_data["department"] = row.get("department")
+                         
+                         await user_repo.create_user(role=role, **user_data)
+                         
+                         # Send Welcome Email
+                         try:
+                             from app.core.email import email_service
+                             await email_service.send_teacher_welcome_email(
+                                 to_email=email,
+                                 name=f"{first_name}",
+                                 password=generated_password,
+                                 designation=user_data["designation"],
+                                 department=user_data["department"]
+                             )
+                         except Exception as e:
+                             print(f"Failed to send email to {email}: {e}")
+
+                    success_count += 1
+
+                except Exception as e:
+                    print(f"Error processing row {row_idx}: {e}")
+                    errors.append(f"Row {row_idx}: Unexpected error: {str(e)}")
+
+        # Log results (In a real app, save to a 'Job' table or notify admin via WebSocket/Email)
+        print(f"Background Import Completed. Success: {success_count}, Errors: {len(errors)}")
+        if errors:
+            print(f"Import Errors: {errors}")
+
+    except Exception as e:
+        print(f"CRITICAL ERROR in background task: {e}")
+
+
+@router.post("/bulk-import", status_code=status.HTTP_202_ACCEPTED)
 async def import_users_csv(
+    background_tasks: BackgroundTasks,
     role: Role = Query(...),
     file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_admin)
 ):
     """
-    Import students or teachers from a CSV file.
+    Initiate bulk import of students or teachers from a CSV file.
+    Processing happens in the background.
     """
     print(f"DEBUG: Hit bulk-import endpoint with role: {role}")
     if role not in [Role.STUDENT, Role.TEACHER]:
@@ -41,110 +174,24 @@ async def import_users_csv(
     decoded = content.decode("utf-8")
     stream = io.StringIO(decoded)
     reader = csv.DictReader(stream)
-
-    user_repo = UserRepository(db)
-    branch_repo = BranchRepository(db)
-    section_repo = SectionRepository(db)
-
-    success_count = 0
-    errors = []
     
-    # Default password removed in favor of random generation per user for Students
-    # For bulk import, sending emails might be slow if sequential. 
-    # Ideally should be background task. For now, doing it inline but robustly.
-
-    import secrets # Ensure this is imported at top or here locale
-
-    for row_idx, row in enumerate(reader, start=2): # Header is line 1
-        try:
-            email = row.get("email")
-            first_name = row.get("first_name")
-            last_name = row.get("last_name")
-            
-            if not email or not first_name:
-                errors.append(f"Row {row_idx}: Missing required fields (email, first_name)")
-                continue
-
-            if await user_repo.email_exists(email):
-                errors.append(f"Row {row_idx}: Email {email} already exists")
-                continue
-            
-            # Generate random password for students
-            generated_password = secrets.token_urlsafe(10)
-            
-            user_data = {
-                "email": email,
-                "first_name": first_name,
-                "last_name": last_name or "",
-                "phone_number": row.get("phone_number"),
-                "password": generated_password,
-                "is_first_login": True
-            }
-
-            if role == Role.STUDENT:
-                roll_no = row.get("roll_no")
-                if not roll_no:
-                    errors.append(f"Row {row_idx}: Missing roll_no for student")
-                    continue
-                if await user_repo.roll_no_exists(roll_no):
-                    errors.append(f"Row {row_idx}: Roll number {roll_no} already exists")
-                    continue
-                user_data["roll_no"] = roll_no
-
-                # Lookup Branch and Section
-                branch_code = row.get("branch_code")
-                section_name = row.get("section_name")
-                
-                if branch_code:
-                    branch = await branch_repo.get_by_code(branch_code)
-                    if not branch:
-                        errors.append(f"Row {row_idx}: Branch code {branch_code} not found")
-                        continue
-                    user_data["branch_id"] = branch.id
-                    
-                    if section_name:
-                        section = await section_repo.get_by_name_and_branch(section_name, branch.id)
-                        if not section:
-                            errors.append(f"Row {row_idx}: Section {section_name} not found in branch {branch_code}")
-                            continue
-                        user_data["section_id"] = section.id
-                
-                # Create the student
-                await user_repo.create_user(role=role, **user_data)
-                
-                # Send Welcome Email
-                from app.core.email import email_service
-                await email_service.send_student_welcome_email(
-                    to_email=email,
-                    name=f"{first_name}",
-                    password=generated_password,
-                    roll_no=roll_no
-                )
-
-            else:
-                 # Teacher-specific fields
-                 # Teachers might still use default or random. Let's use random too for security?
-                 # Prompt said "Student get the mail". 
-                 # Let's keep teachers on default for now unless specified, or just generic.
-                 # Actually safer to give them random too if we are importing.
-                 # But let's stick to user request "Student should get...".
-                 user_data["password"] = "University@2026" # Keep default for teachers for now or TODO
-                 
-                 user_data["designation"] = row.get("designation", "Lecturer")
-                 user_data["department"] = row.get("department")
-                 
-                 await user_repo.create_user(role=role, **user_data)
-
-            success_count += 1
-
-        except Exception as e:
-            errors.append(f"Row {row_idx}: Unexpected error: {str(e)}")
+    # Validate Headers
+    headers = set(reader.fieldnames) if reader.fieldnames else set()
+    required_headers = STUDENT_HEADERS if role == Role.STUDENT else TEACHER_HEADERS
+    
+    missing = required_headers - headers
+    if missing:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Missing required columns: {', '.join(missing)}"
+        )
+    
+    # Trigger background task
+    background_tasks.add_task(process_bulk_import, content, role, current_user.email)
 
     return {
-        "message": f"Successfully imported {success_count} {role.value}s",
-        "success_count": success_count,
-        "error_count": len(errors),
-        "errors": errors[:50] # Limit reported errors
+        "message": f"Bulk import for {role.value}s started in background.",
+        "details": "You will be notified (check server logs/admin dashboard) upon completion." 
     }
 
 

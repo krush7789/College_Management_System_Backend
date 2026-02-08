@@ -131,6 +131,19 @@ class SectionRepository(BaseRepository[Section]):
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
+    async def get_first_by_name_and_branch(self, name: str, branch_id: UUID) -> Section | None:
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        query = select(self.model).where(
+            self.model.name == name,
+            self.model.branch_id == branch_id
+        ).options(
+            selectinload(self.model.branch),
+            selectinload(self.model.semester)
+        )
+        result = await self.db.execute(query)
+        return result.scalars().first()
+
     async def get_by_branch(self, branch_id: UUID) -> list[Section]:
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload

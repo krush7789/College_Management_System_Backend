@@ -10,7 +10,7 @@ from app.models.branch import Branch
 from app.models.section import Section
 from app.models.semester import Semester
 from app.models.exam import Exam
-from app.models.exam_marks import ExamMarks
+from app.models.exam_marks import ExamMarks, MarkStatus
 from app.models.leave_application import LeaveApplication, LeaveStatus
 from app.models.attendance import Attendance, AttendanceStatus
 from app.models.timetable import Timetable
@@ -72,57 +72,63 @@ async def get_defaulters(
 ):
     """
     Get list of students with attendance percentage below the threshold (default 75%).
+    Checks BOTH overall attendance AND subject-wise attendance.
+    If a student is defaulting in any subject, they are included.
     """
     try:
-        # 1. Calculate Attendance Stats per Student
-        # We need Total Classes and Present Classes for each student
+        # 1. Calculate Attendance Stats per Student AND Subject
+        # We need to find if ANY subject is below threshold
         
-        # Subquery for totals
         stmt = (
             select(
                 Attendance.student_id,
+                Subject.name.label("subject_name"),
                 func.count(Attendance.id).label("total_classes"),
                 func.count(Attendance.id).filter(Attendance.status == AttendanceStatus.PRESENT).label("present_classes")
             )
-            .group_by(Attendance.student_id)
+            .join(Subject, Attendance.subject_id == Subject.id)
+            .group_by(Attendance.student_id, Subject.id, Subject.name)
         )
         
-        # Execute aggregate query
         results = await db.execute(stmt)
         
-        defaulters = []
-        student_ids = []
-        stats_map = {}
+        defaulters_map = {} # student_id -> { min_pct, subject_cause, total, present }
         
         for row in results:
             s_id = row.student_id
+            subject_name = row.subject_name
             total = row.total_classes
             present = row.present_classes
             
             if total > 0:
                 pct = (present / total) * 100
+                
+                # Check if this subject is below threshold
                 if pct < threshold:
-                    student_ids.append(s_id)
-                    stats_map[s_id] = {
-                        "percentage": round(pct, 1),
-                        "total": total,
-                        "present": present
-                    }
+                    # If this student is already in map, check if this subject is WORSE
+                    if s_id in defaulters_map:
+                        if pct < defaulters_map[s_id]["percentage"]:
+                            defaulters_map[s_id] = {
+                                "percentage": round(pct, 1),
+                                "subject_cause": subject_name,
+                                "total": total,
+                                "present": present
+                            }
+                    else:
+                        # New defaulter found
+                        defaulters_map[s_id] = {
+                            "percentage": round(pct, 1),
+                            "subject_cause": subject_name,
+                            "total": total,
+                            "present": present
+                        }
+
+        student_ids = list(defaulters_map.keys())
         
         if not student_ids:
             return []
             
         # 2. Fetch User Details for these students
-        # We join with Branch and Section for context
-        users_stmt = (
-            select(User)
-            .options(
-                select(Branch).where(Branch.id == User.branch_id).load_only(Branch.name, Branch.code), # partial load optimization if needed, but joinedload is standard
-            )
-            .where(User.id.in_(student_ids))
-        )
-        # Re-using User's relationship loading from repo would be cleaner, but direct query is fine here
-        # Let's just use the repo's efficient loading or simple join
         from sqlalchemy.orm import joinedload
         users_query = (
             select(User)
@@ -136,18 +142,27 @@ async def get_defaulters(
         users_res = await db.execute(users_query)
         students = users_res.scalars().all()
         
+        defaulters = []
         for student in students:
-            stat = stats_map[student.id]
+            if student.id not in defaulters_map:
+                continue
+                
+            stat = defaulters_map[student.id]
             branch_code = student.branch.code if student.branch else "N/A"
             semester = f"Sem {student.section.semester.number}" if (student.section and student.section.semester) else "N/A"
             section = student.section.name if student.section else "N/A"
+            
+            # Append subject cause to class info if it exists
+            class_info = f"{semester} - {section}"
+            if stat["subject_cause"]:
+                class_info += f" ({stat['subject_cause']})"
             
             defaulters.append({
                 "id": str(student.id),
                 "name": f"{student.first_name} {student.last_name}",
                 "roll_no": student.roll_no,
                 "branch": branch_code,
-                "class_info": f"{semester} - {section}",
+                "class_info": class_info,
                 "attendance_pct": stat["percentage"],
                 "classes_attended": f"{stat['present']}/{stat['total']}"
             })
@@ -294,7 +309,9 @@ async def get_student_stats(
     today_name = datetime.datetime.now().strftime("%A").lower()
     
     today_classes = []
-    if student.section_id:
+    valid_days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+    
+    if student.section_id and today_name in valid_days:
         classes_stmt = (
             select(Timetable, Subject)
             .join(Subject, Timetable.subject_id == Subject.id)
@@ -474,25 +491,29 @@ async def get_teacher_stats(
         total_students = await db.scalar(students_stmt) or 0
 
     # 2. Today's Timetable
-    timetable_stmt = (
-        select(Timetable, Subject, Section)
-        .join(Subject, Timetable.subject_id == Subject.id)
-        .join(Section, Timetable.section_id == Section.id)
-        .where(Timetable.teacher_id == current_user.id)
-        .where(Timetable.day == today_name)
-        .order_by(Timetable.period)
-    )
-    tt_res = await db.execute(timetable_stmt)
-    today_classes = [
-        {
-            "subject": subj.name,
-            "section": sec.name,
-            "period": tt.period,
-            "time": f"{tt.start_time.strftime('%H:%M')} - {tt.end_time.strftime('%H:%M')}",
-            "room": tt.room
-        }
-        for tt, subj, sec in tt_res
-    ]
+    today_classes = []
+    valid_days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+    
+    if today_name in valid_days:
+        timetable_stmt = (
+            select(Timetable, Subject, Section)
+            .join(Subject, Timetable.subject_id == Subject.id)
+            .join(Section, Timetable.section_id == Section.id)
+            .where(Timetable.teacher_id == current_user.id)
+            .where(Timetable.day == today_name)
+            .order_by(Timetable.period)
+        )
+        tt_res = await db.execute(timetable_stmt)
+        today_classes = [
+            {
+                "subject": subj.name,
+                "section": sec.name,
+                "period": tt.period,
+                "time": f"{tt.start_time.strftime('%H:%M')} - {tt.end_time.strftime('%H:%M')}",
+                "room": tt.room
+            }
+            for tt, subj, sec in tt_res
+        ]
 
     # 3. Pending Leave Applications (for students in their sections)
     pending_leaves = []

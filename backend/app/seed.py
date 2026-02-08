@@ -1,4 +1,5 @@
 import asyncio
+import os
 from app.core.database import AsyncSessionLocal, engine, Base
 from app.core.security import hash_password
 import app.models
@@ -23,7 +24,7 @@ async def seed_admin():
         
         admin = User(
             email="krushagarwal7879@gmail.com",
-            password_hash=hash_password("Admin@123"),
+            password_hash=hash_password(os.getenv("ADMIN_PASSWORD", "Admin@123")),
             first_name="System",
             last_name="Administrator",
             role=Role.ADMIN,
@@ -36,7 +37,7 @@ async def seed_admin():
         
         print("Admin user created successfully!")
         print("Email: krushagarwal7879@gmail.com")
-        print("Password: Admin@123")
+        print("Password: [HIDDEN]")
         print("Role: admin")
 
 

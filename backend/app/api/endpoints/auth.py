@@ -1,12 +1,13 @@
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
 
 from app.core.database import get_db
-from app.core.security import verify_password, create_access_token, hash_password
+from app.core.security import verify_password, create_access_token, hash_password, decode_access_token
 from app.core.dependencies import get_current_user
 from app.core.email import email_service
 from app.models.user import User
@@ -77,6 +78,71 @@ async def login(
     return LoginResponse(
         access_token=access_token,
         refresh_token=refresh_token,
+        token_type="bearer",
+        user=UserProfile.model_validate(user)
+    )
+
+
+@router.post("/refresh", response_model=LoginResponse)
+async def refresh_token(
+    authorization: Annotated[str | None, Header()] = None,
+    db: Annotated[AsyncSession, Depends(get_db)] = None
+):
+    """
+    Refresh access token using a valid refresh token.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+         raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing Authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    token = authorization.split(" ")[1]
+    
+    payload = decode_access_token(token)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    if payload.get("type") != "refresh":
+         raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type (expected refresh token)",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+         raise HTTPException(status_code=401, detail="Invalid token payload")
+         
+    try:
+        user_id = UUID(user_id_str)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid user ID in token")
+        
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_id(user_id)
+    
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+        
+    # Rotate tokens
+    access_token = create_access_token(
+        data={"sub": str(user.id), "role": user.role.value, "type": "access"}
+    )
+    
+    new_refresh_token = create_access_token(
+        data={"sub": str(user.id), "role": user.role.value, "type": "refresh"},
+        expires_delta=timedelta(days=7)
+    )
+    
+    return LoginResponse(
+        access_token=access_token,
+        refresh_token=new_refresh_token,
         token_type="bearer",
         user=UserProfile.model_validate(user)
     )

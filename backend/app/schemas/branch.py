@@ -17,6 +17,15 @@ class BranchUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 class BranchResponse(BaseModel):
+    """
+    Response schema for branches.
+    
+    ORM model has: name, code
+    Frontend expects: branch_name, branch_code
+    
+    Using validation_alias to read from ORM attributes,
+    but serializing with field names (branch_name, branch_code).
+    """
     id: UUID
     branch_name: str = Field(validation_alias="name")
     branch_code: str = Field(validation_alias="code")
@@ -25,3 +34,5 @@ class BranchResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+

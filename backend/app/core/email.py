@@ -161,6 +161,28 @@ class EmailService:
         """
         return await self.send_email(to_email, "Welcome to UniPortal - Your Account Details", html_content)
 
+    async def send_teacher_welcome_email(self, to_email: str, name: str, password: str, designation: str, department: str) -> bool:
+        """Send welcome email to new teacher with credentials."""
+        login_url = f"{self.frontend_url}/login"
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: sans-serif; padding: 20px;">
+            <h2 style="color: #2563eb;">Welcome to UniPortal, Professor!</h2>
+            <p>Dear {name},</p>
+            <p>Your teacher account for <strong>{department}</strong> has been successfully created.</p>
+            <div style="background: #eff6ff; padding: 20px; border-radius: 12px; border: 1px solid #dbeafe; margin: 20px 0;">
+                <p><strong>Designation:</strong> {designation}</p>
+                <p><strong>Temporary Password:</strong> <code style="background: #fff; padding: 4px 8px; border-radius: 4px; font-size: 1.1em;">{password}</code></p>
+            </div>
+            <p>Please login and change your password immediately.</p>
+            <p><a href="{login_url}" style="background: #2563eb; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 6px; display: inline-block;">Login to Portal</a></p>
+        </body>
+        </html>
+        """
+        return await self.send_email(to_email, "Welcome Faculty - Your Account Details", html_content)
+
     async def send_exam_schedule_update(self, to_emails: list[str], exam_details: dict) -> bool:
         """Notify students about exam schedule changes."""
         if not to_emails: return True

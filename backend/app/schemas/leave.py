@@ -9,9 +9,23 @@
 from typing import Optional
 from datetime import datetime, date
 from uuid import UUID
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from .base import BaseSchema
+
+
+# =============================================================================
+# Nested Schema for Student Info in Leave Responses
+# =============================================================================
+
+class LeaveStudentInfo(BaseModel):
+    """Minimal student info for leave responses."""
+    id: UUID
+    first_name: str
+    last_name: str
+    roll_no: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LeaveApplicationCreate(BaseModel):
@@ -92,3 +106,7 @@ class LeaveApplicationResponse(BaseSchema):
     
     # Computed field
     days_count: Optional[int] = None
+    
+    # Nested student data (for frontend display)
+    student: Optional[LeaveStudentInfo] = None
+
