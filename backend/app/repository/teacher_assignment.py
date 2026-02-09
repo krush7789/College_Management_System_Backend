@@ -38,10 +38,11 @@ class TeacherAssignmentRepository(BaseRepository[TeacherAssignment]):
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_all_with_relations(self, skip: int = 0, limit: int = 100, search: str = None) -> tuple[List[TeacherAssignment], int]:
+    async def get_all_with_relations(self, skip: int = 0, limit: int = 100, search: str = None, branch_id: UUID = None, semester_id: UUID = None) -> tuple[List[TeacherAssignment], int]:
         """
         Get all assignments with teacher, section, and subject data loaded.
         Supports search by teacher name, section name, or subject name/code.
+        Supports filtering by branch and semester.
         """
         from sqlalchemy import func, or_
         from app.models.user import User
@@ -62,6 +63,12 @@ class TeacherAssignmentRepository(BaseRepository[TeacherAssignment]):
                 selectinload(TeacherAssignment.subject)
             )
         )
+        
+        if branch_id:
+            query = query.where(Section.branch_id == branch_id)
+            
+        if semester_id:
+            query = query.where(Section.semester_id == semester_id)
         
         if search:
             search_filter = f"%{search}%"

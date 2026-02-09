@@ -185,10 +185,6 @@ const Attendance = () => {
                 subtitle="Mark daily attendance and view records"
                 actions={
                     <div className="flex items-center gap-2">
-                        <Button variant="outline" className="gap-2">
-                            <History className="h-4 w-4" />
-                            View Logs
-                        </Button>
                         <Button
                             onClick={formik.handleSubmit}
                             disabled={saving || !selectedAssignment || formik.isSubmitting}

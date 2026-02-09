@@ -20,7 +20,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, Pencil, Users, UserPlus, AlertCircle, Eye, Power, CheckCircle, XCircle, Mail, Phone, Briefcase, Building, Search, ChevronLeft, ChevronRight, FileUp, Download, FileSpreadsheet } from 'lucide-react';
 import { Skeleton } from "@/components/ui/skeleton";
 import SectionHeader from '@/components/SectionHeader';
@@ -54,12 +54,14 @@ const Teachers = () => {
     const { data: teachersData = { items: [], total: 0 }, isLoading } = useQuery({
         queryKey: ['teachers', page, searchTerm],
         queryFn: async () => {
-            const res = await users.getAll({
+            const params = {
                 role: 'teacher',
                 skip: (page - 1) * limit,
                 limit,
                 search: searchTerm
-            });
+            };
+
+            const res = await users.getAll(params);
             return res.data;
         }
     });
@@ -337,6 +339,9 @@ const Teachers = () => {
                                                     <Button variant="ghost" size="icon" className="h-10 w-10 text-gray-400 hover:text-teal-600 hover:bg-white rounded-2xl shadow-sm border border-transparent hover:border-teal-100 transition-all" onClick={(e) => openEditModal(item, e)}>
                                                         <Pencil className="h-4.5 w-4.5" />
                                                     </Button>
+                                                    <Button variant="ghost" size="icon" className={`h-10 w-10 rounded-2xl shadow-sm border border-transparent transition-all ${item.is_active ? 'text-gray-400 hover:text-red-600 hover:bg-red-50 hover:border-red-100' : 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 hover:border-emerald-100'}`} onClick={(e) => openDeactivateDialog(item, e)}>
+                                                        <Power className="h-4.5 w-4.5" />
+                                                    </Button>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -505,11 +510,13 @@ const Teachers = () => {
 
                                 <SheetHeader className="relative z-10">
                                     <div className="flex flex-col items-center text-center gap-6">
-                                        <Avatar className="h-32 w-32 border-4 border-white/20 shadow-2xl ring-4 ring-white/10">
+                                        {detailItem.profile_picture_url ? <Avatar className="h-32 w-32 border-4 border-white/20 shadow-2xl ring-4 ring-white/10">
+                                            <AvatarImage src={detailItem.profile_picture_url} />
+                                        </Avatar> : <Avatar className="h-32 w-32 border-4 border-white/20 shadow-2xl ring-4 ring-white/10">
                                             <AvatarFallback className="bg-white/10 text-white text-4xl font-black backdrop-blur-xl">
                                                 {detailItem.first_name?.[0]}{detailItem.last_name?.[0]}
                                             </AvatarFallback>
-                                        </Avatar>
+                                        </Avatar>}
                                         <div className="space-y-2">
                                             <SheetTitle className="text-white text-3xl font-black tracking-tight">
                                                 {detailItem.first_name} {detailItem.last_name}

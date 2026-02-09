@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from app.core.config import settings
 import cloudinary
 import cloudinary.uploader
-from app.core.dependencies import get_current_admin
+from app.core.dependencies import get_current_user
 from app.models.user import User
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
@@ -17,11 +17,11 @@ cloudinary.config(
 @router.post("/image")
 async def upload_image(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Upload an image to Cloudinary and return the URL.
-    Restricted to Admins for now (or Teachers).
+    Accessible to all logged-in users.
     """
     if not settings.CLOUDINARY_CLOUD_NAME:
          raise HTTPException(status_code=500, detail="Cloudinary not configured")

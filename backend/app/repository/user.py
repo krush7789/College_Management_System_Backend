@@ -110,6 +110,7 @@ class UserRepository:
         role: Optional[Role] = None,
         branch_id: Optional[UUID] = None,
         section_id: Optional[UUID] = None,
+        semester_id: Optional[UUID] = None,
         search: Optional[str] = None
     ) -> tuple[list[User], int]:
         """
@@ -117,6 +118,7 @@ class UserRepository:
         """
         from sqlalchemy import func, or_
         from sqlalchemy.orm import joinedload
+        from app.models.section import Section
         
         query = select(User).options(
             joinedload(User.branch),
@@ -129,6 +131,11 @@ class UserRepository:
             query = query.where(User.branch_id == branch_id)
         if section_id:
             query = query.where(User.section_id == section_id)
+        if semester_id:
+            # Filter by semester via Section relationship
+            # Use has() to check existence in related table without explicit join that might conflict with joinedload
+            query = query.where(User.section.has(Section.semester_id == semester_id))
+            
         if search:
             search_filter = f"%{search}%"
             query = query.where(
@@ -279,6 +286,49 @@ class UserRepository:
         result = await self.db.execute(query)
         await self.db.commit()
         return result.rowcount > 0
+    
+    # -------------------------------------------------------------------------
+    # STATS Operations
+    # -------------------------------------------------------------------------
+
+    async def get_student_stats(self, student_id: UUID) -> dict:
+        """
+        Get overall attendance and performance stats for a student.
+        """
+        from sqlalchemy import func, select
+        from app.models.attendance import Attendance, AttendanceStatus
+        from app.models.exam_marks import ExamMarks
+        from app.models.exam import Exam
+
+        # 1. Overall Attendance
+        att_stmt = (
+            select(
+                func.count(Attendance.id).label("total"),
+                func.count(Attendance.id).filter(Attendance.status == AttendanceStatus.PRESENT).label("present")
+            )
+            .where(Attendance.student_id == student_id)
+        )
+        att_res = await self.db.execute(att_stmt)
+        att_row = att_res.one()
+        
+        overall_attendance = 0.0
+        if att_row.total > 0:
+            overall_attendance = (att_row.present / att_row.total) * 100
+
+        # 2. Overall Performance
+        perf_stmt = (
+            select(func.avg((ExamMarks.marks_obtained / Exam.total_marks) * 100))
+            .select_from(ExamMarks)
+            .join(Exam, ExamMarks.exam_id == Exam.id)
+            .where(ExamMarks.student_id == student_id)
+        )
+        avg_perf = await self.db.scalar(perf_stmt)
+        overall_performance = float(avg_perf) if avg_perf else 0.0
+
+        return {
+            "overall_attendance": round(overall_attendance, 1),
+            "overall_performance": round(overall_performance, 1)
+        }
     
     # -------------------------------------------------------------------------
     # VALIDATION Helpers

@@ -196,13 +196,12 @@ const TeacherAnnouncements = () => {
                     </div>
 
                     <div className="space-y-4">
-                        {announcements.filter(a => a.created_by === user?.id).length === 0 ? (
+                        {announcements.length === 0 ? (
                             <div className="text-center py-12 bg-slate-50 rounded-lg border border-dashed border-slate-200">
                                 <p className="text-slate-500 text-sm">No announcements posted yet.</p>
                             </div>
                         ) : (
                             announcements
-                                .filter(a => a.created_by === user?.id)
                                 .map((ann) => (
                                     <Card key={ann.id} className="shadow-sm border-slate-200 group">
                                         <CardContent className="p-6">
@@ -215,28 +214,35 @@ const TeacherAnnouncements = () => {
                                                         <span className="text-xs text-slate-400">
                                                             {format(new Date(ann.created_at), 'MMM d, yyyy • h:mm a')}
                                                         </span>
+                                                        {!ann.is_active && (
+                                                            <Badge variant="outline" className="text-xs border-slate-300 text-slate-500">Inactive</Badge>
+                                                        )}
                                                     </div>
                                                     <h4 className="text-lg font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">
                                                         {ann.title}
                                                     </h4>
                                                 </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => handleDelete(ann.id)}
-                                                    className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 -mt-2 -mr-2"
-                                                >
-                                                    <Trash className="h-4 w-4" />
-                                                </Button>
+                                                {ann.created_by === user?.id && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => handleDelete(ann.id)}
+                                                        className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 -mt-2 -mr-2"
+                                                    >
+                                                        <Trash className="h-4 w-4" />
+                                                    </Button>
+                                                )}
                                             </div>
                                             <div className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
                                                 {ann.content}
                                             </div>
                                             <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2">
                                                 <div className="h-6 w-6 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
-                                                    {user?.first_name?.charAt(0)}{user?.last_name?.charAt(0)}
+                                                    {ann.creator_name ? ann.creator_name.charAt(0) : 'U'}
                                                 </div>
-                                                <span className="text-xs text-slate-500 font-medium">Posted by You</span>
+                                                <span className="text-xs text-slate-500 font-medium">
+                                                    {ann.created_by === user?.id ? 'Posted by You' : `Posted by ${ann.creator_name}`}
+                                                </span>
                                             </div>
                                         </CardContent>
                                     </Card>

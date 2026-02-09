@@ -179,7 +179,7 @@ const Branches = () => {
                     <div className="flex items-center justify-between font-medium">
                         <div>
                             <CardTitle className="text-lg font-bold text-gray-800">
-                                {showInactive ? 'Archive List' : 'Departmental Overview'}
+                                {showInactive ? 'Inactive Branches' : 'Active Branches'}
                             </CardTitle>
                             <CardDescription className="text-gray-500">
                                 Showing {filteredData.length} records

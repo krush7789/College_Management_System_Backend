@@ -160,7 +160,7 @@ const TeacherTimetable = () => {
                                                                     </Badge>
                                                                     <div className="flex items-center gap-1 text-[11px] text-indigo-600 font-medium">
                                                                         <MapPin className="h-3 w-3" />
-                                                                        Room {entry.room}
+                                                                        {entry.room}
                                                                     </div>
                                                                 </div>
                                                             </div>

@@ -25,7 +25,7 @@ function Login() {
     const [error, setError] = useState('');
 
     const handleSubmit = async (values) => {
-        const result = await login(values.email, values.password);
+        const result = await login(values.email, values.password, values.rememberMe);
 
         console.log("Login result:", result);
         if (result.success) {
@@ -73,7 +73,7 @@ function Login() {
                         validationSchema={loginSchema}
                         onSubmit={handleSubmit}
                     >
-                        {({ errors, touched, isSubmitting, handleChange, handleBlur, values }) => (
+                        {({ errors, touched, isSubmitting, handleChange, handleBlur, values, setFieldValue }) => (
                             <Form className="space-y-4">
                                 {error && (
                                     <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md font-medium text-center">
@@ -123,13 +123,15 @@ function Login() {
                                 </div>
 
                                 <div className="flex items-center space-x-2">
-                                    <Field
-                                        type="checkbox"
-                                        name="rememberMe"
-                                        as={Checkbox}
+                                    <Checkbox
                                         id="rememberMe"
+                                        checked={values.rememberMe}
+                                        onCheckedChange={(checked) => setFieldValue('rememberMe', checked)}
                                     />
-                                    <Label htmlFor="rememberMe" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                                    <Label
+                                        htmlFor="rememberMe"
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    >
                                         Remember me
                                     </Label>
                                 </div>

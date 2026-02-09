@@ -48,3 +48,17 @@ class LeaveRepository(BaseRepository[LeaveApplication]):
         
         result = await self.db.execute(query)
         return result.scalars().all()
+    async def get_by_id(self, id: UUID) -> Optional[LeaveApplication]:
+        query = select(self.model).options(selectinload(self.model.student)).where(self.model.id == id)
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def update(self, db_obj: LeaveApplication, obj_in: dict) -> LeaveApplication:
+        for field, value in obj_in.items():
+            setattr(db_obj, field, value)
+        await self.db.commit()
+        
+        # Re-fetch with student relationship to ensure it's loaded for response schema
+        query = select(self.model).options(selectinload(self.model.student)).where(self.model.id == db_obj.id)
+        result = await self.db.execute(query)
+        return result.scalar_one()

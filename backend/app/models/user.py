@@ -58,4 +58,4 @@ class User(Base):
     leave_applications = relationship("LeaveApplication", back_populates="student", foreign_keys="LeaveApplication.student_id")
     approved_leaves = relationship("LeaveApplication", back_populates="approver", foreign_keys="LeaveApplication.approved_by")
     exam_marks = relationship("ExamMarks", back_populates="student", foreign_keys="ExamMarks.student_id")
-    notifications = relationship("Notification", back_populates="user")
+

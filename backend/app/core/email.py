@@ -11,7 +11,7 @@ class EmailService:
         self.port = settings.SMTP_PORT
         self.username = settings.SMTP_USERNAME
         self.password = settings.SMTP_PASSWORD
-        self.from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USERNAME
+        self.from_email = settings.SMTP_FROM_EMAIL
         self.from_name = settings.SMTP_FROM_NAME
         self.frontend_url = settings.FRONTEND_URL
     
@@ -56,45 +56,6 @@ class EmailService:
         except Exception as e:
             print(f"Failed to send email to {to_email}: {str(e)}")
             return False
-    
-    async def send_password_reset_email(self, to_email: str, reset_token: str) -> bool:
-        reset_url = f"{self.frontend_url}/reset-password?token={reset_token}"
-        
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="utf-8"></head>
-        <body style="font-family: sans-serif; background: #f8fafc; padding: 20px;">
-            <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                <div style="background: linear-gradient(135deg, #1A9B95, #4490b2); padding: 32px; text-align: center;">
-                    <h1 style="color: #fff; margin: 0;">UniPortal</h1>
-                </div>
-                <div style="padding: 32px;">
-                    <h2 style="color: #1e293b;">Reset Your Password</h2>
-                    <p style="color: #64748b;">Click the button below to reset your password:</p>
-                    <div style="text-align: center; margin: 32px 0;">
-                        <a href="{reset_url}" style="background: linear-gradient(135deg, #1A9B95, #4490b2); color: #fff; padding: 14px 32px; border-radius: 50px; text-decoration: none; font-weight: 600;">Reset Password</a>
-                    </div>
-                    <p style="color: #94a3b8; font-size: 12px;">This link expires in 15 minutes.</p>
-                    <p style="color: #94a3b8; font-size: 12px; word-break: break-all;">{reset_url}</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        text_content = f"Reset your password: {reset_url}"
-        
-        if not self.is_configured:
-            print(f"Password reset link for {to_email}: {reset_url}")
-            return True
-        
-        return await self.send_email(
-            to_email=to_email,
-            subject="Reset Your UniPortal Password",
-            html_content=html_content,
-            text_content=text_content
-        )
 
     async def send_temporary_password_email(self, to_email: str, temp_password: str) -> bool:
         login_url = f"{self.frontend_url}/login"

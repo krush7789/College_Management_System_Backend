@@ -20,10 +20,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, Pencil, GraduationCap, UserPlus, AlertCircle, Eye, Power, CheckCircle, XCircle, Mail, Phone, Building2, Layers, Search, ChevronLeft, ChevronRight, FileUp, Download, FileSpreadsheet } from 'lucide-react';
 import { Skeleton } from "@/components/ui/skeleton";
 import SectionHeader from '@/components/SectionHeader';
+import { SectionSelect } from '@/components/SectionSelect';
 
 const initialFormData = {
     first_name: '', last_name: '', email: '',
@@ -51,16 +52,25 @@ const Students = () => {
     const [deactivateItem, setDeactivateItem] = useState(null);
     const [isDeactivateOpen, setIsDeactivateOpen] = useState(false);
 
+    const [selectedBranch, setSelectedBranch] = useState('all');
+    const [selectedSemester, setSelectedSemester] = useState('all');
+
+
+
     // Data Fetching with React Query
     const { data: studentsData = { items: [], total: 0 }, isLoading: isLoadingStudents } = useQuery({
-        queryKey: ['students', page, searchTerm],
+        queryKey: ['students', page, searchTerm, selectedBranch, selectedSemester],
         queryFn: async () => {
-            const res = await users.getAll({
+            const params = {
                 role: 'student',
                 skip: (page - 1) * limit,
                 limit,
-                search: searchTerm
-            });
+                search: searchTerm,
+            };
+            if (selectedBranch && selectedBranch !== 'all') params.branch_id = selectedBranch;
+            if (selectedSemester && selectedSemester !== 'all') params.semester_id = selectedSemester;
+
+            const res = await users.getAll(params);
             return res.data;
         }
     });
@@ -85,12 +95,7 @@ const Students = () => {
         }
     });
 
-    // Identify Semester 1 robustly (backend uses int 1 for number)
-    const sem1 = semestersList.find(s => Number(s.semester_name) === 1);
 
-    if (isModalOpen && !sem1 && semestersList.length > 0) {
-        console.warn("WARN: Semester 1 not found in semestersList", semestersList);
-    }
 
     // Main Sections list for Table (fetch all to ensure IDs resolve)
     const { data: sectionsList = [] } = useQuery({
@@ -102,25 +107,6 @@ const Students = () => {
     });
 
 
-    // Dedicated query for the form dropdown (Filtered by Branch + Sem 1)
-    const { data: availableSections = [] } = useQuery({
-        queryKey: ['available-sections', formData.branch_id, sem1?.id],
-        queryFn: async () => {
-            if (!formData.branch_id || !sem1?.id) return [];
-
-            const res = await sections.getAll({
-                branch_id: formData.branch_id,
-                semester_id: sem1.id
-            });
-
-            // section.getAll returns PaginatedResponse, so .items is needed
-            const items = res.data.items || [];
-
-            // Double-check filtering on frontend as a safety measure
-            return items.filter(s => s.semester_id === sem1.id && s.branch_id === formData.branch_id);
-        },
-        enabled: !!formData.branch_id && !!sem1?.id && isModalOpen
-    });
 
     // Mutations
     const createMutation = useMutation({
@@ -187,7 +173,23 @@ const Students = () => {
         setIsModalOpen(true);
     };
 
-    const openDetailSheet = (item) => { setDetailItem(item); setIsDetailOpen(true); };
+    const openDetailSheet = async (item) => {
+        try {
+            // Fetch fresh data including stats
+            const res = await users.get(item.id);
+            setDetailItem(res.data);
+            setIsDetailOpen(true);
+        } catch (err) {
+            toast({
+                title: "Error fetching details",
+                description: "Could not load student statistics.",
+                variant: "destructive",
+            });
+            // Fallback to existing item data if fetch fails
+            setDetailItem(item);
+            setIsDetailOpen(true);
+        }
+    };
     const openDeactivateDialog = (item, e) => { e?.stopPropagation(); setDeactivateItem(item); setIsDeactivateOpen(true); };
 
     const handleSubmit = (e) => {
@@ -196,9 +198,15 @@ const Students = () => {
 
         if (editingItem) {
             const updatePayload = { ...formData };
+            // Convert empty strings to null for Pydantic validation
             if (updatePayload.branch_id === "") updatePayload.branch_id = null;
             if (updatePayload.section_id === "") updatePayload.section_id = null;
-            delete updatePayload.roll_no;
+            if (updatePayload.date_of_birth === "") updatePayload.date_of_birth = null;
+            if (updatePayload.phone_number === "") updatePayload.phone_number = null;
+            if (updatePayload.profile_picture_url === "") updatePayload.profile_picture_url = null;
+
+            // Remove password to prevent accidental overwrite with empty string (though backend handles it)
+            delete updatePayload.password;
 
             updateMutation.mutate({ id: editingItem.id, data: updatePayload });
         } else {
@@ -214,9 +222,9 @@ const Students = () => {
     };
 
     // Derived Data
-    const getBranchCode = (id) => branchesList.find(b => b.id === id)?.branch_code || '';
-    const getBranchName = (id) => branchesList.find(b => b.id === id)?.branch_name || '';
-    const getSectionName = (id) => sectionsList.find(s => s.id === id)?.section_name || '';
+    const getBranchCode = (id) => Array.isArray(branchesList) ? (branchesList.find(b => b.id === id)?.branch_code || '') : '';
+    const getBranchName = (id) => Array.isArray(branchesList) ? (branchesList.find(b => b.id === id)?.branch_name || '') : '';
+    const getSectionName = (id) => Array.isArray(sectionsList) ? (sectionsList.find(s => s.id === id)?.section_name || '') : '';
 
     const filteredData = studentsList.filter(item => {
         const matchesStatus = showInactive ? !item.is_active : item.is_active;
@@ -233,6 +241,32 @@ const Students = () => {
                 subtitle="Manage student enrollments & profiles"
                 actions={
                     <div className="flex items-center gap-3">
+                        <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                            <SelectTrigger className="w-[180px] h-11 rounded-2xl border-gray-200 font-semibold bg-white">
+                                <SelectValue placeholder="All Branches" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl shadow-xl border-gray-100">
+                                <SelectItem value="all" className="rounded-xl font-bold">All Branches</SelectItem>
+                                {branchesList?.map(b => (
+                                    <SelectItem key={b.id} value={String(b.id)} className="rounded-xl">{b.branch_name || b.name} ({b.branch_code || b.code})</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                            <SelectTrigger className="w-[180px] h-11 rounded-2xl border-gray-200 font-semibold bg-white">
+                                <SelectValue placeholder="All Semesters" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl shadow-xl border-gray-100">
+                                <SelectItem value="all" className="rounded-xl font-bold">All Semesters</SelectItem>
+                                {semestersList?.map(s => (
+                                    <SelectItem key={s.id} value={String(s.id)} className="rounded-xl">Sem {s.semester_name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <div className="h-8 w-px bg-gray-200 mx-2" />
+
                         <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-2xl border border-gray-200 shadow-sm">
                             <span className={`text-xs font-semibold uppercase tracking-wider ${!showInactive ? 'text-blue-600' : 'text-gray-400'}`}>Active</span>
                             <Switch checked={showInactive} onCheckedChange={setShowInactive} className="data-[state=checked]:bg-red-500" />
@@ -248,8 +282,7 @@ const Students = () => {
                 }
             />
 
-            {/* Search Bar */}
-            < div className="flex gap-4" >
+            <div className="flex gap-4">
                 <div className="relative flex-1">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <Input
@@ -262,10 +295,10 @@ const Students = () => {
                         className="h-12 pl-12 rounded-2xl border-gray-200 bg-white/50 focus:bg-white transition-all text-base"
                     />
                 </div>
-            </div >
+            </div>
 
             {/* Table Card */}
-            < Card className="bg-white/80 backdrop-blur-xl rounded-[2rem] border-0 shadow-xl shadow-gray-100/50 overflow-hidden" >
+            <Card className="bg-white/80 backdrop-blur-xl rounded-[2rem] border-0 shadow-xl shadow-gray-100/50 overflow-hidden">
                 <CardHeader className="bg-white/50 border-b border-gray-100 px-8 py-6">
                     <div className="flex items-center justify-between">
                         <div>
@@ -415,10 +448,10 @@ const Students = () => {
                     </div>
                 </div>
 
-            </Card >
+            </Card>
 
             {/* Create/Edit Dialog */}
-            < Dialog open={isModalOpen} onOpenChange={setIsModalOpen} >
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden rounded-[2.5rem] border-0 shadow-2xl">
                     <DialogHeader className="px-8 pt-8 pb-6 bg-gradient-to-br from-blue-500 to-blue-600 shrink-0">
                         <DialogTitle className="flex items-center gap-4 text-white text-2xl font-bold">
@@ -514,16 +547,19 @@ const Students = () => {
                                     <Label className="text-sm font-semibold text-gray-700 ml-1">Branch</Label>
                                     <Select value={formData.branch_id} onValueChange={(val) => setFormData({ ...formData, branch_id: val, section_id: '' })}>
                                         <SelectTrigger className="h-12 rounded-2xl border-gray-200 bg-gray-50/50 focus:bg-white transition-all"><SelectValue placeholder="Select Branch" /></SelectTrigger>
-                                        <SelectContent className="rounded-xl">{branchesList.filter(b => b.is_active).map(b => <SelectItem key={b.id} value={String(b.id)} className="rounded-lg">{b.branch_name} ({b.branch_code})</SelectItem>)}</SelectContent>
+                                        <SelectContent className="rounded-xl">{Array.isArray(branchesList) && branchesList.filter(b => b.is_active).map(b => <SelectItem key={b.id} value={String(b.id)} className="rounded-lg">{b.branch_name} ({b.branch_code})</SelectItem>)}</SelectContent>
                                     </Select>
                                 </div>
 
                                 <div className="space-y-2.5">
                                     <Label className="text-sm font-semibold text-gray-700 ml-1">Section</Label>
-                                    <Select value={formData.section_id} onValueChange={(val) => setFormData({ ...formData, section_id: val })} disabled={!formData.branch_id}>
-                                        <SelectTrigger className="h-12 rounded-2xl border-gray-200 bg-gray-50/50 focus:bg-white transition-all"><SelectValue placeholder="Select Section" /></SelectTrigger>
-                                        <SelectContent className="rounded-xl">{availableSections.map(s => <SelectItem key={s.id} value={String(s.id)} className="rounded-lg">Section {s.section_name}</SelectItem>)}</SelectContent>
-                                    </Select>
+                                    <SectionSelect
+                                        value={formData.section_id}
+                                        onChange={(val) => setFormData({ ...formData, section_id: val })}
+                                        branchId={formData.branch_id}
+                                        disabled={!formData.branch_id}
+                                        placeholder="Select Section"
+                                    />
                                 </div>
                             </div>
 
@@ -536,21 +572,23 @@ const Students = () => {
                         </form>
                     </div>
                 </DialogContent>
-            </Dialog >
+            </Dialog>
 
             {/* Detail Sheet */}
-            < Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen} >
+            <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>
                 <SheetContent className="sm:max-w-[500px] p-0 border-0 overflow-hidden shadow-2xl">
                     {detailItem && (
                         <>
                             <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-8 pb-10">
                                 <SheetHeader>
                                     <div className="flex items-center gap-6">
-                                        <Avatar className="h-24 w-24 border-4 border-white/20 shadow-xl ring-1 ring-white/10">
+                                        {detailItem.profile_picture_url ? <Avatar className="h-24 w-24 border-4 border-white/20 shadow-xl ring-1 ring-white/10">
+                                            <AvatarImage src={detailItem.profile_picture_url} />
+                                        </Avatar> : <Avatar className="h-24 w-24 border-4 border-white/20 shadow-xl ring-1 ring-white/10">
                                             <AvatarFallback className="bg-white/10 text-white text-3xl font-bold backdrop-blur-md">
                                                 {detailItem.first_name?.[0]}{detailItem.last_name?.[0]}
                                             </AvatarFallback>
-                                        </Avatar>
+                                        </Avatar>}
                                         <div className="space-y-1">
                                             <SheetTitle className="text-white text-2xl font-bold tracking-tight">
                                                 {detailItem.first_name} {detailItem.last_name}
@@ -563,6 +601,22 @@ const Students = () => {
                                                     (<Badge className="bg-white/20 text-white hover:bg-white/25 border-0 rounded-lg px-3 py-1 backdrop-blur-sm"><CheckCircle className="h-3.5 w-3.5 mr-1.5" />Active</Badge>) :
                                                     (<Badge className="bg-red-500/20 text-white hover:bg-red-500/30 border-0 rounded-lg px-3 py-1 backdrop-blur-sm"><XCircle className="h-3.5 w-3.5 mr-1.5" />Inactive</Badge>)
                                                 }
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Overall Stats */}
+                                    <div className="grid grid-cols-2 gap-4 px-8 pt-6 pb-2">
+                                        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                                            <p className="text-blue-100 text-xs font-semibold uppercase tracking-wider mb-1">Overall Attendance</p>
+                                            <div className="flex items-baseline gap-1">
+                                                <span className="text-3xl font-bold text-white">{detailItem.overall_attendance || 0}%</span>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                                            <p className="text-blue-100 text-xs font-semibold uppercase tracking-wider mb-1">Overall Performance</p>
+                                            <div className="flex items-baseline gap-1">
+                                                <span className="text-3xl font-bold text-white">{detailItem.overall_performance || 0}%</span>
                                             </div>
                                         </div>
                                     </div>
@@ -625,10 +679,9 @@ const Students = () => {
                         </>
                     )}
                 </SheetContent>
-            </Sheet >
-
+            </Sheet>
             {/* Deactivation Dialog */}
-            < Dialog open={isDeactivateOpen} onOpenChange={setIsDeactivateOpen} >
+            <Dialog open={isDeactivateOpen} onOpenChange={setIsDeactivateOpen}>
                 <DialogContent className="sm:max-w-[440px] p-0 overflow-hidden rounded-[2.5rem] border-0 shadow-2xl">
                     <DialogHeader className={`px-8 pt-8 pb-6 ${deactivateItem?.is_active ? 'bg-gradient-to-br from-red-500 to-red-600' : 'bg-gradient-to-br from-blue-500 to-blue-600'}`}>
                         <div className="flex items-center gap-4 text-white">
@@ -681,10 +734,10 @@ const Students = () => {
                         </DialogFooter>
                     </div>
                 </DialogContent>
-            </Dialog >
+            </Dialog>
 
             {/* Bulk Import Dialog */}
-            < Dialog open={isImportOpen} onOpenChange={setIsImportOpen} >
+            <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
                 <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-[2.5rem] border-0 shadow-2xl">
                     <DialogHeader className="px-8 pt-8 pb-6 bg-gradient-to-br from-indigo-500 to-indigo-600">
                         <DialogTitle className="flex items-center gap-4 text-white text-2xl font-bold">
@@ -765,8 +818,8 @@ const Students = () => {
                         </div>
                     </div>
                 </DialogContent>
-            </Dialog >
-        </div >
+            </Dialog>
+        </div>
     );
 };
 

@@ -112,6 +112,7 @@ export const sections = {
 export const subjects = crud('subjects');
 export const users = {
     ...crud('users'),
+    get: (id) => api.get(`/users/${id}`),
     createStudent: (data) => api.post('/users/student', data),
     createTeacher: (data) => api.post('/users/teacher', data),
     createAdmin: (data) => api.post('/users/admin', data),
@@ -158,6 +159,7 @@ export const electives = {
     getAvailable: () => api.get('/electives/available'),
     getMySelections: () => api.get('/electives/my-selections'),
     select: (subjectId) => api.post(`/electives/select/${subjectId}`),
+    bulkSelect: (subjectIds) => api.post('/electives/bulk-select', subjectIds),
 };
 export const teacherAssignments = {
     ...crud('admin/teacher-assignments'),
@@ -177,13 +179,10 @@ export const announcements = {
     ...crud('announcements'),
     getAdminAll: () => api.get('/announcements/admin'),
     getForStudent: () => api.get('/announcements'),
+    delete: (id) => api.patch(`/announcements/${id}/deactivate`),
 };
 
-export const notifications = {
-    getAll: (params) => api.get('/notifications', { params }),
-    markRead: (ids) => api.post('/notifications/mark-read', { notification_ids: ids }),
-    markAllRead: () => api.post('/notifications/mark-read', { notification_ids: null }),
-};
+
 
 export const common = {
     uploadImage: (file) => {

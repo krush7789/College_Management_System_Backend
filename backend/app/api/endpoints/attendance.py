@@ -26,6 +26,7 @@ async def get_my_attendance_summary(
 async def get_my_attendance_records(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
+    status: Optional[str] = None,
     skip: int = 0,
     limit: int = 20,
     db: Annotated[AsyncSession, Depends(get_db)] = None,
@@ -40,10 +41,11 @@ async def get_my_attendance_records(
         current_user.id, 
         start_date=start_date, 
         end_date=end_date,
+        status=status,
         skip=skip,
         limit=limit
     )
-    total = await repo.get_student_records_count(current_user.id, start_date, end_date)
+    total = await repo.get_student_records_count(current_user.id, start_date, end_date, status)
     
     return {
         "items": records,

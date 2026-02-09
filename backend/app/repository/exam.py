@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.models.exam import Exam
-from app.api.endpoints.dashboard import Branch # Implicit dependency check
+
 from app.repository.base import BaseRepository
 
 class ExamRepository(BaseRepository[Exam]):
@@ -29,21 +29,28 @@ class ExamRepository(BaseRepository[Exam]):
         result = await self.db.execute(query)
         return result.scalars().all()
         
-    async def get_all(self, skip: int = 0, limit: int = 100) -> tuple[List[Exam], int]:
+    async def get_all(self, skip: int = 0, limit: int = 100, search: Optional[str] = None) -> tuple[List[Exam], int]:
         from sqlalchemy import func
         
         # Eager load relations for the list
         query = (
             select(self.model)
             .options(selectinload(self.model.subject), selectinload(self.model.section))
-            .offset(skip)
-            .limit(limit)
         )
+        
+        if search:
+            query = query.where(self.model.exam_name.ilike(f"%{search}%"))
+            
+        count_query = select(func.count()).select_from(self.model)
+        if search:
+            count_query = count_query.where(self.model.exam_name.ilike(f"%{search}%"))
+            
+        query = query.offset(skip).limit(limit)
+        
         result = await self.db.execute(query)
         data = list(result.scalars().all())
         
         # Get total count
-        count_query = select(func.count()).select_from(self.model)
         count_result = await self.db.execute(count_query)
         total = count_result.scalar_one()
         

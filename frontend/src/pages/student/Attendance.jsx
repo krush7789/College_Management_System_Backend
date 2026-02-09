@@ -42,7 +42,8 @@ const StudentAttendance = () => {
                 skip: page * pageSize,
                 limit: pageSize,
                 start_date: initialDate || undefined,
-                end_date: initialDate || undefined
+                end_date: initialDate || undefined,
+                status: statusFilter !== 'all' ? statusFilter : undefined
             });
 
             setAttendanceRecords(Array.isArray(res.data.items) ? res.data.items : []);

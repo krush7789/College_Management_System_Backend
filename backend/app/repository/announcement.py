@@ -16,7 +16,7 @@ class AnnouncementRepository:
         await self.db.refresh(announcement)
         return announcement
 
-    async def get_all(self, role: Optional[str] = None, section_id: Optional[UUID] = None, include_inactive: bool = False) -> List[Announcement]:
+    async def get_all(self, role: Optional[str] = None, section_id: Optional[UUID] = None, user_id: Optional[UUID] = None, include_inactive: bool = False) -> List[Announcement]:
         stmt = select(Announcement, User.first_name, User.last_name)\
             .join(User, Announcement.created_by == User.id)\
             .order_by(desc(Announcement.created_at))
@@ -28,6 +28,10 @@ class AnnouncementRepository:
             # If student and has a section, also show announcements for that section
             if role == "student" and section_id:
                 role_filters.append(Announcement.section_id == section_id)
+
+            # Allow user to see their own announcements
+            if user_id:
+                role_filters.append(Announcement.created_by == user_id)
                 
             stmt = stmt.where(or_(*role_filters))
         
@@ -50,3 +54,21 @@ class AnnouncementRepository:
         stmt = select(Announcement).where(Announcement.id == announcement_id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def deactivate(self, announcement_id: UUID):
+        stmt = select(Announcement).where(Announcement.id == announcement_id)
+        result = await self.db.execute(stmt)
+        announcement = result.scalar_one_or_none()
+        if announcement:
+            announcement.is_active = False
+            await self.db.commit()
+            await self.db.refresh(announcement)
+            
+    async def reactivate(self, announcement_id: UUID):
+        stmt = select(Announcement).where(Announcement.id == announcement_id)
+        result = await self.db.execute(stmt)
+        announcement = result.scalar_one_or_none()
+        if announcement:
+            announcement.is_active = True
+            await self.db.commit()
+            await self.db.refresh(announcement)

@@ -16,7 +16,7 @@
 from typing import Optional
 from datetime import date, datetime
 from uuid import UUID
-from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, model_validator, ConfigDict, field_validator
 
 from .base import BaseSchema
 
@@ -243,6 +243,10 @@ class UserProfile(BaseSchema):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
+    # Computed Stats (Student Only)
+    overall_attendance: Optional[float] = None
+    overall_performance: Optional[float] = None
+
 
 class UserUpdate(BaseModel):
     """
@@ -330,13 +334,11 @@ class ChangePasswordRequest(BaseModel):
         description="Confirm new password (must match)"
     )
     
-    @field_validator('confirm_password')
-    @classmethod
-    def passwords_match(cls, v: str, info) -> str:
-        """Validate that new_password and confirm_password match."""
-        if 'new_password' in info.data and v != info.data['new_password']:
-            raise ValueError('Passwords do not match')
-        return v
+    @model_validator(mode="after")
+    def passwords_match(self):
+        if self.new_password != self.confirm_password:
+            raise ValueError("Passwords do not match")
+        return self
 
 
 class ForgotPasswordRequest(BaseModel):

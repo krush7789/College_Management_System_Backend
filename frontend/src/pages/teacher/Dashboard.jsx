@@ -117,7 +117,7 @@ const TeacherDashboard = () => {
                     trend="Active this semester"
                 />
                 <StatCard
-                    label="Pending Leaves"
+                    label="Leaves With Status Pending"
                     value={stats?.stats?.pending_leaves_count || 0}
                     icon={Clock}
                     iconColor="amber"

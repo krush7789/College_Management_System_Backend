@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from 'date-fns';
+import { SectionSelect } from '@/components/SectionSelect';
 
 const initialFormData = {
     exam_name: '',
@@ -54,29 +55,8 @@ const AdminExams = () => {
     const examsList = examsData.items || [];
     const totalCount = examsData.total || 0;
 
-    const { data: sectionsList = [] } = useQuery({
-        queryKey: ['sections'],
-        queryFn: async () => {
-            const res = await oceans.getAll({ limit: 100 }); // I need to check where sections come from
-            return res.data.items || [];
-        }
-    });
-
-    // Wait, let's fix the sections list query. In Subjects.jsx it used 'branches' and 'semesters'.
-    // In Sections.jsx it uses 'sections'. Let's use 'sections' from api.js.
-
-    // I noticed I used 'oceans' by mistake in my thought. It's 'sections'.
-
-    const { data: allSections = [] } = useQuery({
-        queryKey: ['sections-all'],
-        queryFn: async () => {
-            const res = await sections.getAll({ limit: 100 });
-            return res.data.items || [];
-        }
-    });
-
     const { data: allSubjects = [] } = useQuery({
-        queryKey: ['subjects-all'],
+        queryKey: ['subjects', 'all'], // Consistent with other pages
         queryFn: async () => {
             const res = await subjects.getAll({ limit: 100 });
             return res.data.items || [];
@@ -247,9 +227,6 @@ const AdminExams = () => {
                                         </TableCell>
                                         <TableCell className="px-8 text-right">
                                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0">
-                                                <Button size="icon" variant="ghost" onClick={() => handleOpenModal(item)} className="h-10 w-10 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl">
-                                                    <Pencil className="w-5 h-5" />
-                                                </Button>
                                                 <Button
                                                     size="icon"
                                                     variant="ghost"
@@ -345,19 +322,11 @@ const AdminExams = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="grid gap-2">
                                         <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Section</Label>
-                                        <Select
+                                        <SectionSelect
                                             value={formData.section_id}
-                                            onValueChange={v => setFormData({ ...formData, section_id: v })}
-                                        >
-                                            <SelectTrigger className="h-12 rounded-2xl border-slate-200 font-semibold px-5">
-                                                <SelectValue placeholder="Select Section" />
-                                            </SelectTrigger>
-                                            <SelectContent className="rounded-2xl border-slate-100">
-                                                {allSections.map(sec => (
-                                                    <SelectItem key={sec.id} value={sec.id}>{sec.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            onChange={(val) => setFormData({ ...formData, section_id: val })}
+                                            placeholder="Select Section"
+                                        />
                                     </div>
 
                                     <div className="grid gap-2">

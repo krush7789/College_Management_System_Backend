@@ -1,7 +1,7 @@
 from typing import Annotated, Optional
 from uuid import UUID
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -13,7 +13,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 async def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
+    token: Annotated[OAuth2PasswordRequestForm, Depends(oauth2_scheme)],
     db: Annotated[AsyncSession, Depends(get_db)]
 ) -> User:
     credentials_exception = HTTPException(
@@ -52,45 +52,6 @@ async def get_current_user(
         )
     
     return user
-
-
-oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
-
-
-async def get_current_user_optional(
-    token: Annotated[Optional[str], Depends(oauth2_scheme_optional)],
-    db: Annotated[AsyncSession, Depends(get_db)]
-) -> Optional[User]:
-    if not token:
-        return None
-    
-    payload = decode_access_token(token)
-    if payload is None:
-        return None
-    
-    user_id_str = payload.get("sub")
-    if not user_id_str:
-        return None
-    
-    try:
-        user_id = UUID(user_id_str)
-    except ValueError:
-        return None
-    
-    user_repo = UserRepository(db)
-    user = await user_repo.get_by_id(user_id)
-    
-    if user is None or not user.is_active:
-        return None
-    
-    return user
-
-
-async def get_current_active_user(
-    current_user: Annotated[User, Depends(get_current_user)]
-) -> User:
-    return current_user
-
 
 async def get_current_admin(
     current_user: Annotated[User, Depends(get_current_user)]

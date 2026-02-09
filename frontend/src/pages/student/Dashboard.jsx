@@ -1,61 +1,29 @@
-import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { dashboard } from "../../services/api";
 import StatCard from '@/components/StatCard';
 import SectionHeader from '@/components/SectionHeader';
 import {
     BookOpen,
     Clock,
     CheckCircle2,
-    TrendingUp,
     MapPin,
-    GraduationCap,
     AlertCircle,
     Megaphone,
     Calendar as CalendarIcon
 } from "lucide-react";
 import { useNavigate, Link } from 'react-router-dom';
 import { Skeleton } from "@/components/ui/skeleton";
+import { useStudentDashboard } from "@/hooks/useStudentDashboard";
 
 const StudentDashboard = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [stats, setStats] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
 
-    useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                // Call all student dashboard APIs in parallel
-                const [statsRes, timetableRes, resultsRes] = await Promise.all([
-                    dashboard.getStudentStats(),
-                    dashboard.getStudentTimetable(),
-                    dashboard.getStudentResults()
-                ]);
-
-                // Combine all the data
-                const combinedStats = {
-                    ...statsRes.data,
-                    today_classes: timetableRes.data?.today_classes || [],
-                    course_progress: resultsRes.data?.subjects || resultsRes.data?.course_progress || []
-                };
-
-                setStats(combinedStats);
-
-            } catch (err) {
-                console.error("Failed to fetch student stats:", err);
-                setError("Could not load dashboard data.");
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchStats();
-    }, []);
+    // Using Custom Hook
+    const { stats, loading, error } = useStudentDashboard();
 
     if (loading) {
         return (
@@ -92,10 +60,10 @@ const StudentDashboard = () => {
         );
     }
 
-    // Calculate generic stats if not directly available
+    // Calculate generic stats
     const totalCourses = stats?.course_progress?.length || 0;
     const overallAttendance = stats?.attendance_overall || 0;
-    const activeLeaves = stats?.active_leaves_count || 0; // Assuming API provides this or we default to 0
+    const activeLeaves = stats?.active_leaves_count || 0;
 
     return (
         <div className="space-y-8">
@@ -105,7 +73,7 @@ const StudentDashboard = () => {
                 subtitle={`Welcome back, ${user?.first_name}. Here's your academic overview.`}
                 actions={
                     <Badge variant="outline" className="px-4 py-1.5 text-sm font-medium">
-                        Semester {stats?.semester || 'N/A'}
+                        {stats?.semester || 'N/A'}
                     </Badge>
                 }
             />
@@ -127,7 +95,7 @@ const StudentDashboard = () => {
                     trend="Current semester subjects"
                 />
                 <StatCard
-                    label="Active Leaves"
+                    label="Leaves With Status Pending"
                     value={activeLeaves}
                     icon={Clock}
                     iconColor="amber"
@@ -223,7 +191,7 @@ const StudentDashboard = () => {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                {stats?.course_progress?.slice(0, 4).map((course, idx) => (
+                                {stats?.course_progress?.map((course, idx) => (
                                     <div key={idx} className="space-y-1">
                                         <div className="flex justify-between text-sm">
                                             <span className="font-medium text-slate-700">{course.subject}</span>

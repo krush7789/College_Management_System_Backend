@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { teacherAssignments, users, sections, subjects, branches } from '../../services/api';
+import { teacherAssignments, users, sections, subjects, branches, semesters } from '../../services/api';
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { SectionSelect } from '@/components/SectionSelect';
 
 const initialFormData = {
     teacher_id: '',
@@ -31,6 +32,8 @@ const initialFormData = {
 
 const TeacherAssignments = () => {
     const queryClient = useQueryClient();
+    const [selectedBranch, setSelectedBranch] = useState('all');
+    const [selectedSemester, setSelectedSemester] = useState('all');
     const [page, setPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const limit = 10;
@@ -40,13 +43,17 @@ const TeacherAssignments = () => {
 
     // Data Fetching
     const { data: assignmentsData = { items: [], total: 0 }, isLoading } = useQuery({
-        queryKey: ['teacher-assignments', page, searchTerm],
+        queryKey: ['teacher-assignments', page, searchTerm, selectedBranch, selectedSemester],
         queryFn: async () => {
-            const res = await teacherAssignments.getAll({
+            const params = {
                 skip: (page - 1) * limit,
                 limit,
                 search: searchTerm
-            });
+            };
+            if (selectedBranch && selectedBranch !== 'all') params.branch_id = selectedBranch;
+            if (selectedSemester && selectedSemester !== 'all') params.semester_id = selectedSemester;
+
+            const res = await teacherAssignments.getAll(params);
             return res.data;
         }
     });
@@ -84,11 +91,20 @@ const TeacherAssignments = () => {
     const { data: branchesData = { items: [], total: 0 } } = useQuery({
         queryKey: ['branches'],
         queryFn: async () => {
-            const res = await branches.getAll();
+            const res = await branches.getAll({ limit: 100 });
             return res.data;
         }
     });
-    const branchesList = branchesData.items || [];
+    const branchesList = branchesData.items || (Array.isArray(branchesData) ? branchesData : []);
+
+    const { data: semestersData = { items: [], total: 0 } } = useQuery({
+        queryKey: ['semesters'],
+        queryFn: async () => {
+            const res = await semesters.getAll({ limit: 100 });
+            return res.data;
+        }
+    });
+    const semestersList = semestersData.items || (Array.isArray(semestersData) ? semestersData : []);
 
     // Mutations
     const createMutation = useMutation({
@@ -151,8 +167,32 @@ const TeacherAssignments = () => {
                         <p className="text-sm text-gray-500 font-bold mt-1 uppercase tracking-widest text-[10px]">Manage faculty assignments and workloads</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
-                    <Button onClick={() => setIsModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-xl shadow-indigo-500/20 h-14 px-8 font-black uppercase text-[10px] tracking-widest transition-all hover:scale-105 active:scale-95">
+                <div className="flex flex-wrap items-center gap-3">
+                    <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                        <SelectTrigger className="w-[160px] h-12 rounded-2xl border-gray-200 font-semibold bg-white shadow-sm">
+                            <SelectValue placeholder="All Branches" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-2xl shadow-xl border-gray-100">
+                            <SelectItem value="all" className="rounded-xl font-bold">All Branches</SelectItem>
+                            {branchesList?.map(b => (
+                                <SelectItem key={b.id} value={String(b.id)} className="rounded-xl">{b.branch_name} ({b.branch_code})</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                        <SelectTrigger className="w-[160px] h-12 rounded-2xl border-gray-200 font-semibold bg-white shadow-sm">
+                            <SelectValue placeholder="All Semesters" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-2xl shadow-xl border-gray-100">
+                            <SelectItem value="all" className="rounded-xl font-bold">All Semesters</SelectItem>
+                            {semestersList?.map(s => (
+                                <SelectItem key={s.id} value={String(s.id)} className="rounded-xl">Sem {s.semester_name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Button onClick={() => setIsModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-xl shadow-indigo-500/20 h-12 px-6 font-black uppercase text-[10px] tracking-widest transition-all hover:scale-105 active:scale-95">
                         <Plus className="mr-2 h-5 w-5" /> New Allocation
                     </Button>
                 </div>
@@ -432,35 +472,11 @@ const TeacherAssignments = () => {
 
                                 <div className="space-y-3">
                                     <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Class Section</Label>
-                                    <Select value={formData.section_id} onValueChange={(val) => setFormData({ ...formData, section_id: val })}>
-                                        <SelectTrigger className="h-14 rounded-2xl border-gray-100 bg-gray-50/50 focus:bg-white transition-all font-bold group">
-                                            <div className="flex items-center gap-3">
-                                                <Building className="h-4 w-4 text-gray-400 group-focus:text-indigo-500" />
-                                                <SelectValue placeholder="Assign Section" />
-                                            </div>
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-2xl border-gray-100 shadow-xl p-2">
-                                            {sectionsList.length > 0 ? (
-                                                sectionsList.map(s => {
-                                                    const branch = branchesList.find(b => b.id === s.branch_id);
-                                                    return (
-                                                        <SelectItem key={s.id} value={s.id} className="rounded-xl font-bold py-3">
-                                                            <div className="flex items-center gap-2">
-                                                                <span>Section {s.section_name}</span>
-                                                                {branch && (
-                                                                    <Badge className="text-[8px] h-3.5 px-1 bg-gray-100 text-gray-500 border-0 font-black uppercase tracking-tighter">
-                                                                        {branch.code}
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
-                                                        </SelectItem>
-                                                    )
-                                                })
-                                            ) : (
-                                                <div className="p-4 text-center text-sm text-gray-500 font-bold">No active sections</div>
-                                            )}
-                                        </SelectContent>
-                                    </Select>
+                                    <SectionSelect
+                                        value={formData.section_id}
+                                        onChange={(val) => setFormData({ ...formData, section_id: val })}
+                                        placeholder="Assign Section"
+                                    />
                                 </div>
                             </div>
                         </div>

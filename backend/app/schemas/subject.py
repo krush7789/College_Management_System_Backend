@@ -31,5 +31,6 @@ class SubjectUpdate(BaseModel):
 
 class SubjectResponse(SubjectBase):
     id: UUID
+    branch_code: Optional[str] = None
     created_at: datetime
     updated_at: datetime

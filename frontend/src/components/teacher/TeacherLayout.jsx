@@ -4,16 +4,16 @@ import {
     LayoutDashboard,
     ClipboardList,
     Calendar,
-    Users,
     BookOpen,
     Megaphone,
     LogOut,
     User,
     CheckSquare,
     FileText,
-    GraduationCap
+    GraduationCap,
+    Info
 } from 'lucide-react';
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -95,6 +95,7 @@ const TeacherLayout = () => {
                         <DropdownMenuTrigger asChild>
                             <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-slate-50 transition-colors text-left">
                                 <Avatar className="h-8 w-8 border border-slate-200">
+                                    <AvatarImage src={user?.profile_picture_url} alt={`${user?.first_name} ${user?.last_name}`} />
                                     <AvatarFallback className="bg-indigo-100 text-indigo-600 text-xs font-bold">
                                         {user?.first_name?.[0] || 'T'}
                                     </AvatarFallback>
@@ -124,8 +125,30 @@ const TeacherLayout = () => {
 
             {/* Main Content Wrapper */}
             <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
+
                 {/* Content Area */}
                 <main className="flex-1 p-8">
+                    {/* Security Banner */}
+                    {user.is_first_login && (
+                        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center justify-between shadow-sm">
+                            <div className="flex items-center gap-3">
+                                <Info className="h-5 w-5 text-amber-600" />
+                                <div>
+                                    <h4 className="text-sm font-semibold text-amber-800">Security Recommendation</h4>
+                                    <p className="text-sm text-amber-700">Please change your temporary password.</p>
+                                </div>
+                            </div>
+                            <Button
+                                onClick={() => navigate('/teacher/profile')}
+                                variant="outline"
+                                size="sm"
+                                className="border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                            >
+                                Change Password
+                            </Button>
+                        </div>
+                    )}
+
                     <Outlet />
                 </main>
             </div>

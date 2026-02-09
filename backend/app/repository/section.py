@@ -75,6 +75,7 @@ class SectionRepository(BaseRepository[Section]):
         # 2. Teacher Assignments
         ta_stmt = (
             select(User.first_name, User.last_name, Subject.name)
+            .select_from(TeacherAssignment)
             .join(User, TeacherAssignment.teacher_id == User.id)
             .join(Subject, TeacherAssignment.subject_id == Subject.id)
             .where(TeacherAssignment.section_id == section_id)
@@ -88,6 +89,7 @@ class SectionRepository(BaseRepository[Section]):
         # 3. Overall Performance
         perf_stmt = (
             select(func.avg((ExamMarks.marks_obtained / Exam.total_marks) * 100))
+            .select_from(ExamMarks)
             .join(Exam, ExamMarks.exam_id == Exam.id)
             .where(Exam.section_id == section_id)
         )

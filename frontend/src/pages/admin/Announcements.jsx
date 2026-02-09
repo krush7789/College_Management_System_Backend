@@ -221,6 +221,9 @@ const Announcements = () => {
                                                     <Calendar className="h-3 w-3" />
                                                     {format(new Date(ann.created_at), 'MMM dd, yyyy')}
                                                 </span>
+                                                {!ann.is_active && (
+                                                    <Badge variant="outline" className="text-[10px] border-slate-300 text-slate-500 uppercase tracking-wider">Inactive</Badge>
+                                                )}
                                             </div>
                                             <Button
                                                 variant="ghost"
@@ -246,7 +249,7 @@ const Announcements = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

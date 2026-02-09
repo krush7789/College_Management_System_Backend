@@ -49,3 +49,25 @@ class ElectiveRepository(BaseRepository[StudentElective]):
         await self.db.commit()
         await self.db.refresh(new_selection)
         return new_selection
+
+    async def bulk_select_electives(self, student_id: UUID, subject_ids: List[UUID]) -> bool:
+        """
+        Replace all current elective selections for a student with a new set.
+        """
+        from sqlalchemy import delete
+        try:
+            # 1. Delete existing
+            await self.db.execute(
+                delete(StudentElective).where(StudentElective.student_id == student_id)
+            )
+            
+            # 2. Add new ones
+            for sub_id in subject_ids:
+                self.db.add(StudentElective(student_id=student_id, subject_id=sub_id))
+            
+            await self.db.commit()
+            return True
+        except Exception as e:
+            await self.db.rollback()
+            print(f"Error in bulk_select_electives: {e}")
+            return False

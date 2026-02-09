@@ -24,8 +24,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from '@/components/ui/use-toast';
 import {
     User, Mail, Phone, Calendar, MapPin, Briefcase, Lock, Eye, EyeOff,
-    Edit3, Save, X, Building, GraduationCap, Hash, Shield
+    Edit3, Save, X, Building, GraduationCap, Hash, Shield, Camera, Loader2
 } from 'lucide-react';
+import { common } from '@/services/api';
 
 const Profile = () => {
     const { user } = useAuth();
@@ -45,6 +46,8 @@ const Profile = () => {
         confirm: false
     });
     const [error, setError] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = React.useRef(null);
 
     // Fetch current user data
     const { data: userData, isLoading } = useQuery({
@@ -205,6 +208,55 @@ const Profile = () => {
         });
     };
 
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Basic validation
+        if (!file.type.startsWith('image/')) {
+            toast({
+                title: "Invalid file",
+                description: "Please upload an image file.",
+                variant: "destructive"
+            });
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) { // 5MB limit
+            toast({
+                title: "File too large",
+                description: "Image size should be less than 5MB.",
+                variant: "destructive"
+            });
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await common.uploadImage(file);
+            const imageUrl = response.data.url;
+
+            // Update user profile in DB
+            await updateProfileMutation.mutateAsync({ profile_picture_url: imageUrl });
+
+            toast({
+                title: "Success",
+                description: "Profile picture updated successfully.",
+            });
+        } catch (error) {
+            console.error("Upload error:", error);
+            toast({
+                title: "Upload Failed",
+                description: error.response?.data?.detail || "Failed to upload image. Please try again.",
+                variant: "destructive"
+            });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     const getRoleBadgeColor = (role) => {
         switch (role) {
             case 'admin': return 'bg-purple-500';
@@ -250,8 +302,39 @@ const Profile = () => {
                 <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl p-6 md:p-8 shadow-xl">
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                         <div className="flex items-center gap-4 md:gap-6">
-                            <div className="h-20 w-20 md:h-24 md:w-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border-4 border-white/40">
-                                <User className="h-10 w-10 md:h-12 md:w-12 text-white" />
+                            <div className="relative group">
+                                <div className="h-20 w-20 md:h-24 md:w-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border-4 border-white/40 overflow-hidden">
+                                    {userData?.profile_picture_url ? (
+                                        <img
+                                            src={userData.profile_picture_url}
+                                            alt="Profile"
+                                            className="h-full w-full object-cover"
+                                        />
+                                    ) : (
+                                        <User className="h-10 w-10 md:h-12 md:w-12 text-white" />
+                                    )}
+
+                                    {isUploading && (
+                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                            <Loader2 className="h-8 w-8 text-white animate-spin" />
+                                        </div>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isUploading}
+                                    className="absolute bottom-0 right-0 h-8 w-8 bg-white rounded-full flex items-center justify-center shadow-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+                                    title="Change Profile Picture"
+                                >
+                                    <Camera className="h-4 w-4 text-slate-600" />
+                                </button>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleImageUpload}
+                                    accept="image/*"
+                                    className="hidden"
+                                />
                             </div>
                             <div>
                                 <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">

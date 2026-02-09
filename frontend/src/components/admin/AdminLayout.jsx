@@ -19,7 +19,7 @@ import {
     Info
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -104,6 +104,7 @@ const AdminLayout = () => {
                         <DropdownMenuTrigger asChild>
                             <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-slate-50 transition-colors text-left">
                                 <Avatar className="h-8 w-8 border border-slate-200">
+                                    <AvatarImage src={user?.profile_picture_url} alt={`${user?.first_name} ${user?.last_name}`} />
                                     <AvatarFallback className="bg-blue-100 text-blue-600 text-xs font-bold">
                                         {user.first_name[0]}
                                     </AvatarFallback>

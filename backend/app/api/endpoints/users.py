@@ -13,13 +13,13 @@ from app.repository.user import UserRepository
 from app.repository.branch import BranchRepository
 from app.repository.section import SectionRepository
 from app.schemas.user import (
-    UserCreate,
     StudentCreate,
     TeacherCreate,
     AdminCreate,
     UserUpdate,
     UserProfile
 )
+from app.schemas.base import PaginatedResponse
 
 router = APIRouter(tags=["Users"])
 
@@ -121,6 +121,7 @@ async def process_bulk_import(content: bytes, role: Role, admin_email: str):
                          # Teacher-specific fields
                          # Generate random password (reusing same logic as student)
                          # user_data["password"] is already set to generated_password from earlier
+
                          
                          user_data["designation"] = row.get("designation", "Lecturer")
                          user_data["department"] = row.get("department")
@@ -195,7 +196,6 @@ async def import_users_csv(
     }
 
 
-from app.schemas.base import PaginatedResponse
 
 @router.get("", response_model=PaginatedResponse[UserProfile])
 async def get_users(
@@ -204,6 +204,7 @@ async def get_users(
     role: Optional[Role] = None,
     branch_id: Optional[UUID] = None,
     section_id: Optional[UUID] = None,
+    semester_id: Optional[UUID] = None,
     search: Optional[str] = None,
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user: User = Depends(get_current_admin)
@@ -215,6 +216,7 @@ async def get_users(
         role=role,
         branch_id=branch_id,
         section_id=section_id,
+        semester_id=semester_id,
         search=search
     )
     return {
@@ -245,7 +247,16 @@ async def get_user(
     user = await repo.get_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+        
+    # Convert to Pydantic model to allow injecting extra fields
+    user_profile = UserProfile.model_validate(user)
+    
+    if user.role == Role.STUDENT:
+        stats = await repo.get_student_stats(user.id)
+        user_profile.overall_attendance = stats["overall_attendance"]
+        user_profile.overall_performance = stats["overall_performance"]
+        
+    return user_profile
 
 
 @router.post("/student", response_model=UserProfile, status_code=status.HTTP_201_CREATED)

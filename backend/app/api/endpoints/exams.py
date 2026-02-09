@@ -1,4 +1,4 @@
-from typing import List, Annotated
+from typing import List, Annotated, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -18,8 +18,9 @@ from app.schemas.base import PaginatedResponse
 async def get_exams(
     skip: int = 0,
     limit: int = 100,
-    subject_id: UUID = None,
-    section_id: UUID = None,
+    search: Optional[str] = None,
+    subject_id: Optional[UUID] = None,
+    section_id: Optional[UUID] = None,
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user: User = Depends(get_current_user)
 ):
@@ -35,7 +36,7 @@ async def get_exams(
         items = await repo.get_by_section(section_id)
         return {"items": items, "total": len(items), "skip": skip, "limit": limit}
         
-    items, total = await repo.get_all(skip=skip, limit=limit)
+    items, total = await repo.get_all(skip=skip, limit=limit, search=search)
     return {
         "items": items,
         "total": total,

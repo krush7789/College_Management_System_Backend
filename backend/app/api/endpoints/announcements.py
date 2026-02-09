@@ -49,7 +49,8 @@ async def list_announcements(
     repo = AnnouncementRepository(db)
     # Filter by user's role and section
     role_str = current_user.role.value if hasattr(current_user.role, 'value') else str(current_user.role)
-    return await repo.get_all(role=role_str, section_id=current_user.section_id)
+    # Include inactive announcements so they can be seen with a tag
+    return await repo.get_all(role=role_str, section_id=current_user.section_id, user_id=current_user.id, include_inactive=True)
 
 @router.get("/admin", response_model=List[AnnouncementResponse])
 async def list_all_announcements_admin(
@@ -57,15 +58,24 @@ async def list_all_announcements_admin(
     current_user: User = Depends(get_current_admin)
 ):
     repo = AnnouncementRepository(db)
-    # Admin sees everything
+    # Admin sees everything, including inactive
     return await repo.get_all(include_inactive=True)
 
-@router.delete("/{announcement_id}")
-async def delete_announcement(
+@router.patch("/{announcement_id}/deactivate")
+async def deactivate_announcement(
     announcement_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_user)
 ):
     repo = AnnouncementRepository(db)
-    await repo.delete(announcement_id)
-    return {"message": "Announcement deleted successfully"}
+    
+    # Check ownership if not admin
+    announcement = await repo.get_by_id(announcement_id)
+    if not announcement:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+        
+    if current_user.role != Role.ADMIN and announcement.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to deactivate this announcement")
+
+    await repo.deactivate(announcement_id)
+    return {"message": "Announcement deactivated successfully"}

@@ -45,7 +45,7 @@ class AttendanceRepository(BaseRepository):
             })
         return summary
 
-    async def get_student_records(self, student_id: UUID, start_date: Optional[date] = None, end_date: Optional[date] = None, **kwargs) -> List[dict]:
+    async def get_student_records(self, student_id: UUID, start_date: Optional[date] = None, end_date: Optional[date] = None, status: Optional[str] = None, **kwargs) -> List[dict]:
         """
         Returns detailed attendance logs for a student with subject names.
         """
@@ -58,6 +58,13 @@ class AttendanceRepository(BaseRepository):
             stmt = stmt.where(Attendance.attendance_date >= start_date)
         if end_date:
             stmt = stmt.where(Attendance.attendance_date <= end_date)
+        if status and status.lower() != 'all':
+            # Assuming status is passed as a string matching the enum value (e.g. 'present', 'absent')
+            try:
+                status_enum = AttendanceStatus(status.lower())
+                stmt = stmt.where(Attendance.status == status_enum)
+            except ValueError:
+                pass # Ignore invalid status
         
         stmt = stmt.order_by(Attendance.attendance_date.desc())
         
@@ -80,7 +87,7 @@ class AttendanceRepository(BaseRepository):
             })
         return records
 
-    async def get_student_records_count(self, student_id: UUID, start_date: Optional[date] = None, end_date: Optional[date] = None) -> int:
+    async def get_student_records_count(self, student_id: UUID, start_date: Optional[date] = None, end_date: Optional[date] = None, status: Optional[str] = None) -> int:
         """
         Returns total count of attendance records for a student.
         """
@@ -89,7 +96,13 @@ class AttendanceRepository(BaseRepository):
             stmt = stmt.where(Attendance.attendance_date >= start_date)
         if end_date:
             stmt = stmt.where(Attendance.attendance_date <= end_date)
-        
+        if status and status.lower() != 'all':
+             try:
+                status_enum = AttendanceStatus(status.lower())
+                stmt = stmt.where(Attendance.status == status_enum)
+             except ValueError:
+                pass
+
         return await self.db.scalar(stmt) or 0
 
     async def get_students_for_section(self, section_id: UUID) -> List[dict]:

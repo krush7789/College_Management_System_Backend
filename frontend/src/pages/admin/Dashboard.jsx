@@ -1,7 +1,5 @@
 import { useAuth } from '@/context/AuthContext';
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { dashboard } from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
     GraduationCap, Users, Building2,
@@ -12,60 +10,19 @@ import AnnouncementWidget from '@/components/AnnouncementWidget';
 import DefaultersWidget from '@/components/dashboard/DefaultersWidget';
 import StatCard from '@/components/StatCard';
 import SectionHeader from '@/components/SectionHeader';
+import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 
 const Dashboard = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [stats, setStats] = useState({
-        students: 0,
-        teachers: 0,
-        branches: 0,
-        sections: 0,
-        semesters: 0,
-        pending_leaves: 0,
-        active_exams: 0
-    });
-    const [performanceData, setPerformanceData] = useState([]);
-    const [recentActivity, setRecentActivity] = useState([]);
-    const [examPerformance, setExamPerformance] = useState([]);
-    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // Parallel fetch: Stats (Counts + Activity) AND Branch Performance
-                const [statsRes, perfRes] = await Promise.all([
-                    dashboard.getStats(),
-                    dashboard.getPerformance()
-                ]);
-
-                console.log('Admin Dashboard - Stats Response:', statsRes.data);
-                console.log('Admin Dashboard - Performance Response:', perfRes.data);
-
-                // Assuming backend returns structure: { counts: {...}, recent_activity: [...], exam_performance: [...] }
-                const { counts, recent_activity, exam_performance } = statsRes.data;
-
-                setStats(counts || {
-                    students: 0,
-                    teachers: 0,
-                    branches: 0,
-                    sections: 0,
-                    semesters: 0,
-                    pending_leaves: 0,
-                    active_exams: 0
-                });
-                setRecentActivity(recent_activity || []);
-                setExamPerformance(exam_performance || []);
-                setPerformanceData(perfRes.data || []);
-            } catch (err) {
-                console.error('Failed to fetch dashboard data:', err);
-                console.error('Error details:', err.response?.data || err.message);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
-    }, []);
+    // Using Custom Hook
+    const {
+        stats,
+        performanceData,
+        examPerformance,
+        loading
+    } = useAdminDashboard();
 
     const overviewCards = [
         {
@@ -81,7 +38,7 @@ const Dashboard = () => {
             iconColor: 'lavender'
         },
         {
-            label: 'Departments',
+            label: 'Total Branches',
             value: stats.branches,
             icon: Building2,
             iconColor: 'purple'
@@ -93,7 +50,7 @@ const Dashboard = () => {
             iconColor: 'mint'
         },
         {
-            label: 'Pending Leaves',
+            label: 'Leaves With Pending Status',
             value: stats.pending_leaves,
             icon: Clock,
             iconColor: 'amber'

@@ -34,6 +34,8 @@ async def get_all_assignments(
     skip: int = 0,
     limit: int = 100,
     search: str = None,
+    branch_id: UUID = None,
+    semester_id: UUID = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_admin)
 ) -> PaginatedResponse[TeacherAssignmentResponse]:
@@ -45,7 +47,13 @@ async def get_all_assignments(
     Returns teacher assignments with full teacher, section, and subject details.
     """
     repo = TeacherAssignmentRepository(db)
-    items, total = await repo.get_all_with_relations(skip=skip, limit=limit, search=search)
+    items, total = await repo.get_all_with_relations(
+        skip=skip, 
+        limit=limit, 
+        search=search,
+        branch_id=branch_id,
+        semester_id=semester_id
+    )
     return {
         "items": items,
         "total": total,

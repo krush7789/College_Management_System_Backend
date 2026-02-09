@@ -54,7 +54,7 @@ const Subjects = () => {
                 skip: (page - 1) * limit,
                 limit,
                 search: searchTerm,
-                is_active: !showInactive // Assuming backend supports this filter
+                is_active: !showInactive
             });
             return res.data;
         }
@@ -155,8 +155,8 @@ const Subjects = () => {
         setIsStatusOpen(true);
     };
     // Derived Data
-    const getBranchName = (id) => branchesList.find(b => b.id === id)?.name || '-';
-    const getBranchCode = (id) => branchesList.find(b => b.id === id)?.code || '-';
+    const getBranchName = (id) => branchesList?.find(b => b.id === id)?.branch_name || '-';
+    const getBranchCode = (id) => branchesList?.find(b => b.id === id)?.branch_code || '-';
     const getSemesterName = (id) => {
         const sem = semestersList.find(s => s.id === id);
         return sem ? `Sem ${sem.semester_name}` : '-';
@@ -279,7 +279,7 @@ const Subjects = () => {
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-1.5">
                                                     <Layers className="h-3.5 w-3.5 text-gray-400" />
-                                                    <span className="text-sm font-semibold text-gray-700">{getBranchCode(item.branch_id)}</span>
+                                                    <span className="text-sm font-semibold text-gray-700">{item.branch_code}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5">
                                                     <Calendar className="h-3.5 w-3.5 text-gray-400" />
@@ -395,7 +395,7 @@ const Subjects = () => {
                                     <SelectTrigger className="h-12 rounded-2xl border-gray-200 bg-gray-50/50 focus:bg-white transition-all"><SelectValue placeholder="Select Branch" /></SelectTrigger>
                                     <SelectContent className="rounded-xl">
                                         {Array.isArray(branchesList) && branchesList.filter(b => b.is_active).map(b => (
-                                            <SelectItem key={b.id} value={b.id} className="rounded-lg">{b.name} ({b.code})</SelectItem>
+                                            <SelectItem key={b.id} value={b.id} className="rounded-lg">{b.branch_name} ({b.branch_code})</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -407,7 +407,7 @@ const Subjects = () => {
                                     <SelectTrigger className="h-12 rounded-2xl border-gray-200 bg-gray-50/50 focus:bg-white transition-all"><SelectValue placeholder="Select Semester" /></SelectTrigger>
                                     <SelectContent className="rounded-xl">
                                         {semestersList.map(s => (
-                                            <SelectItem key={s.id} value={s.id} className="rounded-lg">Semester {s.number}</SelectItem>
+                                            <SelectItem key={s.id} value={s.id} className="rounded-lg">Sem {s.semester_name}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -455,7 +455,7 @@ const Subjects = () => {
                                         <div className="h-12 w-12 bg-white rounded-xl flex items-center justify-center shadow-sm text-violet-600"><Layers className="h-6 w-6" /></div>
                                         <div>
                                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Academic Unit</p>
-                                            <p className="font-bold text-gray-900">{getBranchName(detailItem.branch_id)}</p>
+                                            <p className="font-bold text-gray-900">{detailItem.branch_code}</p>
                                         </div>
                                     </div>
                                     <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100 flex items-center gap-4">

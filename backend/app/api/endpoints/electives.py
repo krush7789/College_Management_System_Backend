@@ -44,3 +44,19 @@ async def select_elective_subject(
     if not selection:
         raise HTTPException(status_code=400, detail="Subject already selected or invalid")
     return {"message": "Elective selected successfully"}
+
+@router.post("/bulk-select")
+async def bulk_select_electives(
+    subject_ids: List[UUID],
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Replace all elective selections with a new list."""
+    if current_user.role != Role.STUDENT:
+        raise HTTPException(status_code=403, detail="Only students can select electives")
+        
+    repo = ElectiveRepository(db)
+    success = await repo.bulk_select_electives(current_user.id, subject_ids)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update elective selections")
+    return {"message": "Elective selections updated successfully"}

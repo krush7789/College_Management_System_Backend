@@ -64,7 +64,7 @@ const StudentAnnouncements = () => {
 
     if (loading) {
         return (
-            <div className="space-y-6 max-w-4xl mx-auto p-8">
+            <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <Skeleton className="h-8 w-64" />
                 </div>
@@ -78,7 +78,7 @@ const StudentAnnouncements = () => {
     }
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 max-w-5xl mx-auto p-6">
+        <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex flex-col gap-2">
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900">Announcements</h1>
                 <p className="text-sm text-slate-500">Stay updated with the latest news and notices.</p>
@@ -107,6 +107,9 @@ const StudentAnnouncements = () => {
                                         </CardTitle>
                                         <div className="flex items-center gap-2">
                                             {getPriorityBadge(item.priority)}
+                                            {!item.is_active && (
+                                                <Badge variant="outline" className="text-[10px] border-slate-300 text-slate-500 uppercase">Inactive</Badge>
+                                            )}
                                             <span className="text-xs text-slate-400 whitespace-nowrap">
                                                 {new Date(item.created_at || item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                             </span>

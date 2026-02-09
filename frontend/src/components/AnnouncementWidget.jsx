@@ -59,8 +59,9 @@ const AnnouncementWidget = ({ limit = 3 }) => {
                                 <Calendar className="h-3 w-3" />
                                 {format(new Date(ann.created_at), 'MMM dd, yyyy')}
                             </span>
-                            <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-[10px] uppercase tracking-wide font-semibold border-0">
+                            <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-[10px] uppercase tracking-wide font-semibold border-0 flex gap-2">
                                 {ann.section_id ? 'SECTION' : (ann.target_role === 'all' ? 'GLOBAL' : ann.target_role)}
+                                {!ann.is_active && <span className="text-slate-400 border-l border-slate-300 pl-2">Inactive</span>}
                             </Badge>
                         </div>
                         <h4 className="text-sm font-semibold text-slate-800 mb-1 leading-tight group-hover:text-blue-700 transition-colors">{ann.title}</h4>
